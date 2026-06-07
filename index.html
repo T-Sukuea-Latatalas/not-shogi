@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SHOGI FRONTIER: GOKU - 物理衝突・香車強化版</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
+        canvas { display: block; touch-action: none; }
+        #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
+        #damage-vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; box-shadow: inset 0 0 100px rgba(174, 31, 35, 0); transition: box-shadow 0.3s; }
+        #damage-vignette.hit { box-shadow: inset 0 0 150px rgba(174, 31, 35, 0.8); }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; padding: 40px; box-sizing: border-box; z-index: 20; }
+        #hp-container { position: absolute; bottom: 50px; left: 50px; width: 350px; }
+        .label { font-size: 1.2rem; color: #ae1f23; margin-bottom: 5px; letter-spacing: 0.2em; font-weight: bold; }
+        #hp-frame { height: 15px; background: rgba(255, 255, 255, 0.4); position: relative; overflow: hidden; border-bottom: 2px solid #ae1f23; transform: skewX(-15deg); }
+        #hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #ae1f23, #d4af37); transition: width 0.3s ease-out; }
+        #wave-container { position: absolute; bottom: 50px; right: 50px; text-align: right; }
+        .wave-text { font-size: 4rem; color: #ae1f23; text-shadow: 2px 2px 0px white; }
+        .enemy-count { font-size: 1.2rem; color: #2c3e50; font-weight: bold; }
+        #score-container { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: #f5f5f0; color: #0d0d0d; padding: 10px 40px; border-radius: 5px; box-shadow: 0 5px 0 #ccc, 0 10px 20px rgba(0,0,0,0.2); font-size: 1.5rem; font-weight: bold; border: 2px solid #d4af37; }
+        #shop-menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #f5f5f0; color: #0d0d0d; padding: 40px; border: 10px double #ae1f23; pointer-events: auto; display: none; min-width: 320px; box-shadow: 0 0 100px rgba(0,0,0,0.5); z-index: 100; }
+        .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 10px; border-bottom: 1px dashed #999; cursor: pointer; }
+        .shop-item:hover { background: #eee; color: #ae1f23; }
+        #msg-overlay { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 100px; color: #ae1f23; pointer-events: none; text-shadow: 3px 3px 0px white; opacity: 0; transform: scale(1.5); transition: all 0.5s; z-index: 30; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border: 2px solid #ae1f23; border-radius: 50%; transition: transform 0.1s, border-color 0.1s; }
+        #crosshair.hit-mark { transform: translate(-50%, -50%) scale(1.5); border-color: #ffffff; border-width: 4px; }
+        #game-over { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ae1f23; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        #game-over h1 { font-size: 150px; margin: 0; writing-mode: vertical-rl; letter-spacing: 0.5em; }
+        #game-over button { margin-top: 40px; padding: 15px 50px; font-family: inherit; font-size: 24px; background: #ae1f23; color: #f5f5f0; border: none; cursor: pointer; }
+        .controls-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 14px; color: #444; text-align: center; }
+
+        /* --- モバイル対応 バーチャルUI --- */
+        #touch-controls {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 80;
+        }
+        .touch-device #touch-controls {
+            display: block;
+        }
+        .touch-device .controls-hint {
+            display: none;
+        }
+
+        /* ジョイスティック */
+        #joystick-outer {
+            width: 120px;
+            height: 120px;
+            border: 3px solid rgba(174, 31, 35, 0.6);
+            border-radius: 50%;
+            background: rgba(245, 245, 240, 0.4);
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: #ae1f23;
+            border-radius: 50%;
+            touch-action: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* アクションボタン群 */
+        #action-buttons {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            display: grid;
+            grid-template-columns: repeat(2, 80px);
+            grid-gap: 15px;
+            pointer-events: auto;
+        }
+        .action-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #ae1f23;
+            background: rgba(245, 245, 240, 0.85);
+            color: #ae1f23;
+            font-size: 26px;
+            font-weight: bold;
+            font-family: 'Klee One', serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            touch-action: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            outline: none;
+        }
+        .action-btn:active {
+            background: #ae1f23;
+            color: #f5f5f0;
+        }
+        .action-btn.active {
+            background: #ae1f23;
+            color: #f5f5f0;
+            border-color: #d4af37;
+        }
+
+        /* レスポンシブ調整 */
+        @media (max-width: 768px) {
+            #ui-layer {
+                padding: 15px;
+            }
+            #hp-container {
+                bottom: auto;
+                top: 15px;
+                left: 15px;
+                width: 130px;
+            }
+            .label {
+                font-size: 0.9rem;
+                margin-bottom: 2px;
+            }
+            #score-container {
+                top: auto;
+                bottom: 15px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 1.1rem;
+                padding: 5px 20px;
+                box-shadow: 0 3px 0 #ccc, 0 5px 10px rgba(0,0,0,0.2);
+            }
+            #wave-container {
+                bottom: auto;
+                top: 15px;
+                right: 15px;
+            }
+            .wave-text {
+                font-size: 2rem;
+            }
+            .enemy-count {
+                font-size: 0.9rem;
+            }
+            #joystick-outer {
+                bottom: 25px;
+                left: 25px;
+                width: 100px;
+                height: 100px;
+            }
+            #joystick-knob {
+                width: 40px;
+                height: 40px;
+            }
+            #action-buttons {
+                bottom: 25px;
+                right: 25px;
+                grid-template-columns: repeat(2, 65px);
+                grid-gap: 10px;
+            }
+            .action-btn {
+                width: 65px;
+                height: 65px;
+                font-size: 20px;
+            }
+            #shop-menu {
+                padding: 20px;
+                min-width: 280px;
+            }
+            #msg-overlay {
+                font-size: 50px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="washi-overlay"></div>
+    <div id="damage-vignette"></div>
+    
+    <div id="ui-layer">
+        <div id="score-container">所持銭：<span id="score-val">0</span></div>
+        <div id="hp-container">
+            <div class="label">生命</div>
+            <div id="hp-frame"><div id="hp-bar"></div></div>
+        </div>
+        <div id="wave-container">
+            <div class="enemy-count">残敵：<span id="enemy-count">0</span></div>
+            <div class="wave-text">第<span id="wave-val">一</span>局</div>
+        </div>
+        <div id="crosshair"></div>
+        <div id="shop-menu">
+            <h2 style="text-align:center;">御品書き</h2>
+            <div class="shop-item" onclick="upgrade('power')"><span>腕力強化 (威力)</span> <span id="cost-power">500</span></div>
+            <div class="shop-item" onclick="upgrade('rate')"><span>連射技術 (速度)</span> <span id="cost-rate">800</span></div>
+            <div class="shop-item" onclick="upgrade('speed')"><span>瞬身の術 (移動)</span> <span id="cost-speed">400</span></div>
+            <div class="shop-item" onclick="upgrade('hp')"><span>強靭な魂 (体力)</span> <span id="cost-hp">600</span></div>
+            <p id="shop-close-desc" style="font-size:12px; text-align:center; color:#666; margin-top:20px;">[Tab] キーで閉じる</p>
+        </div>
+        
+        <!-- バーチャルコントローラー -->
+        <div id="touch-controls">
+            <div id="joystick-outer">
+                <div id="joystick-knob"></div>
+            </div>
+            <div id="action-buttons">
+                <button id="btn-shoot" class="action-btn">撃</button>
+                <button id="btn-jump" class="action-btn">跳</button>
+                <button id="btn-dash" class="action-btn">走</button>
+                <button id="btn-shop" class="action-btn">店</button>
+            </div>
+        </div>
+
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物</div>
+    </div>
+
+    <div id="msg-overlay"></div>
+    <div id="game-over"><h1>投了</h1><button onclick="location.reload()">再戦を申し込む</button></div>
+
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- デバイス判定 ---
+        const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (isTouchDevice) {
+            document.body.classList.add('touch-device');
+            document.getElementById('shop-close-desc').innerText = '[店] ボタン または [Tab] キーで閉じる';
+        }
+
+        // --- 定数・システム変数 ---
+        const COLORS = { sky: 0x87CEEB, wood: 0xe3c88d, gold: 0xd4af37, vermillion: 0xae1f23, ink: 0x1a1a1a, spirit: 0x800080 };
+        const STATE = { wave: 0, score: 0, isGameOver: false, shopOpen: false, enemies: [], bullets: [], enemyBullets: [], items: [], dashActive: false };
+        
+        const GRAVITY = -0.015;
+        const JUMP_FORCE = 0.4;
+        const GROUND_Y = 5.0;
+        const DASH_MULT = 1.8;
+
+        const PLAYER = { 
+            hp: 100, maxHp: 100, 
+            speed: 0.5, power: 1, 
+            fireRate: 300, lastShot: 0, 
+            radius: 1.5,
+            vy: 0, isGrounded: true, isShooting: false 
+        };
+        const UPGRADE_COSTS = { power: 500, rate: 800, speed: 400, hp: 600 };
+
+        // バーチャル移動ベクトル
+        const joystickVector = { x: 0, y: 0 };
+
+        // --- Three.js 初期化 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(COLORS.sky);
+        scene.fog = new THREE.FogExp2(COLORS.sky, 0.007);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.rotation.order = 'YXZ';
+        camera.position.set(0, GROUND_Y, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(50, 100, 50); sun.castShadow = true; scene.add(sun);
+
+        // --- アセットファクトリー ---
+        const AssetFactory = {
+            pieceGeom: null,
+            init() {
+                const shape = new THREE.Shape();
+                shape.moveTo(-1.0, 0); shape.lineTo(1.0, 0); shape.lineTo(0.85, 1.8); shape.lineTo(0, 2.4); shape.lineTo(-0.85, 1.8); shape.closePath();
+                this.pieceGeom = new THREE.ExtrudeGeometry(shape, { depth: 0.4, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05 });
+                this.pieceGeom.center(); this.pieceGeom.translate(0, 1.2, 0);
+            },
+            createWoodCanvas(text, color = COLORS.ink) {
+                const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#e3c88d'; ctx.fillRect(0, 0, 256, 256);
+                ctx.strokeStyle = '#d1b272';
+                for(let i=0; i<20; i++) { ctx.lineWidth = Math.random()*2+1; let x = Math.random()*256; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x+(Math.random()-0.5)*20, 256); ctx.stroke(); }
+                if (text) { ctx.fillStyle = color; ctx.font = "bold 140px 'Klee One'"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, 128, 140); }
+                return new THREE.CanvasTexture(canvas);
+            },
+            getMaterials(type) {
+                const isGold = (type === '王' || type === '金');
+                const frontTex = this.createWoodCanvas(type, (isGold || type === '香' || type === '飛' || type === '角') ? COLORS.vermillion : COLORS.ink);
+                const sideTex = this.createWoodCanvas(null);
+                return [
+                    new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.8 }),
+                    new THREE.MeshStandardMaterial({ map: frontTex, roughness: 0.8, color: isGold ? COLORS.gold : 0xffffff, emissive: new THREE.Color(0x000000) })
+                ];
+            }
+        };
+        AssetFactory.init();
+
+        const floorTex = AssetFactory.createWoodCanvas(null);
+        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(50, 50);
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ map: floorTex }));
+        floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+
+        // --- 弾丸クラス ---
+        class Projectile {
+            constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false) {
+                this.isEnemy = isEnemy;
+                this.isHoming = isHoming;
+                this.speed = speed;
+                this.velocity = dir.clone().normalize().multiplyScalar(speed);
+                const mat = new THREE.MeshBasicMaterial({ color: isEnemy ? (isHoming ? 0x8000ff : COLORS.spirit) : COLORS.vermillion, transparent: true, opacity: 0.9 });
+                this.mesh = new THREE.Mesh(new THREE.SphereGeometry(size), mat);
+                this.mesh.position.copy(pos);
+                this.alive = true;
+                this.life = 300;
+                scene.add(this.mesh);
+            }
+            update() {
+                if (this.isHoming && this.isEnemy) {
+                    const targetDir = new THREE.Vector3().subVectors(camera.position, this.mesh.position).normalize();
+                    this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
+                }
+                this.mesh.position.add(this.velocity);
+                this.life--;
+                if (this.life <= 0) this.destroy();
+
+                if (this.isEnemy) {
+                    const dist = this.mesh.position.distanceTo(camera.position);
+                    if (dist < 2.0 && Math.abs(this.mesh.position.y - camera.position.y) < 2.5) {
+                        takeDamage(this.isHoming ? 15 : 10);
+                        this.destroy();
+                    }
+                }
+            }
+            destroy() { this.alive = false; scene.remove(this.mesh); }
+        }
+
+        // --- 回復アイテムクラス ---
+        class Item {
+            constructor(pos) {
+                this.mesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.5, 16, 16),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x2ecc71,
+                        emissive: 0x2ecc71,
+                        emissiveIntensity: 0.6,
+                        roughness: 0.2,
+                        metalness: 0.1
+                    })
+                );
+                this.baseY = GROUND_Y;
+                this.mesh.position.set(pos.x, this.baseY, pos.z);
+                this.alive = true;
+                this.life = 900; 
+                scene.add(this.mesh);
+            }
+            update() {
+                this.mesh.rotation.y += 0.02;
+                this.mesh.rotation.x += 0.01;
+                
+                const time = Date.now() * 0.003;
+                this.mesh.position.y = this.baseY + Math.sin(time) * 0.3 + 0.2;
+
+                this.life--;
+                if (this.life <= 0) this.destroy();
+            }
+            destroy() {
+                this.alive = false;
+                scene.remove(this.mesh);
+            }
+        }
+
+        // --- 敵クラス ---
+        class Enemy {
+            constructor(type, waveScale) {
+                this.type = type;
+                this.mats = AssetFactory.getMaterials(type);
+                this.mesh = new THREE.Mesh(AssetFactory.pieceGeom, this.mats);
+                this.mesh.castShadow = true;
+                
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 60 + Math.random() * 20;
+                this.mesh.position.set(Math.cos(angle)*dist, 0, Math.sin(angle)*dist);
+                
+                this.hp = (this.getHPBase(type)) * waveScale;
+                this.maxHp = this.hp;
+                this.speed = this.getSpeedBase(type);
+                this.lastAttack = Date.now() + Math.random() * 1000;
+                
+                this.chargeState = 0; 
+                this.chargeTarget = new THREE.Vector3();
+                this.chargeStartTime = 0;
+                
+                scene.add(this.mesh);
+            }
+
+            getHPBase(t) {
+                return { '歩':4, '香':6, '桂':5, '銀':8, '金':10, '角':12, '飛':15, '王':80 }[t] || 5;
+            }
+            getSpeedBase(t) {
+                return { '歩':0.08, '香':0.09, '桂':0.12, '銀':0.07, '金':0.05, '角':0.04, '飛':0.04, '王':0.03 }[t] || 0.05;
+            }
+
+            update(playerPos, others) {
+                const diff = new THREE.Vector3().subVectors(playerPos, this.mesh.position);
+                const xzDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
+                const dir = diff.clone().normalize().multiplyScalar(1);
+                dir.y = 0;
+
+                if (xzDist < 2.8 && Math.abs(playerPos.y - (this.mesh.position.y + 1.2)) < 5.0) {
+                    takeDamage(0.5);
+                }
+
+                switch(this.type) {
+                    case '歩':
+                        this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        break;
+                    case '桂':
+                        const jumpCycle = Date.now() * 0.005;
+                        const jumpHeight = Math.max(0, Math.sin(jumpCycle) * 6);
+                        this.mesh.position.y = jumpHeight;
+                        if (jumpHeight > 0.1) { 
+                            this.mesh.position.add(dir.clone().multiplyScalar(this.speed * 2.0)); 
+                        }
+                        break;
+                    case '香':
+                        if (this.chargeState === 0) {
+                            this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                            if (xzDist < 25 && Date.now() - this.lastAttack > 1500) { 
+                                this.chargeState = 1; 
+                                this.chargeTarget.copy(playerPos).add(dir.clone().multiplyScalar(5));
+                                this.mats[1].emissive.setRGB(0.8, 0, 0);
+                            }
+                        } else if (this.chargeState === 1) {
+                            const cDir = new THREE.Vector3().subVectors(this.chargeTarget, this.mesh.position).normalize();
+                            cDir.y = 0;
+                            this.mesh.position.add(cDir.multiplyScalar(this.speed * 8));
+                            if (this.mesh.position.distanceTo(this.chargeTarget) < 2 || xzDist > 120) {
+                                this.chargeState = 0; 
+                                this.lastAttack = Date.now(); 
+                                this.mats[1].emissive.setRGB(0, 0, 0); 
+                            }
+                        }
+                        break;
+                    case '角':
+                        if (xzDist > 35) this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        else if (xzDist < 30) this.mesh.position.add(dir.clone().multiplyScalar(-this.speed));
+                        this.firePattern('X');
+                        break;
+                    case '飛':
+                        if (xzDist > 40) this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        else if (xzDist < 35) this.mesh.position.add(dir.clone().multiplyScalar(-this.speed));
+                        this.firePattern('HOMING');
+                        break;
+                    case '金':
+                        this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        this.firePattern('FAN');
+                        break;
+                    case '銀':
+                        this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        this.firePattern('TRIPLE');
+                        break;
+                    case '王':
+                        this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
+                        this.firePattern('OMNI');
+                        break;
+                }
+
+                this.applySeparation(others);
+
+                if (this.type === '香' && this.chargeState === 1) {
+                    this.mesh.lookAt(this.chargeTarget.x, this.mesh.position.y, this.chargeTarget.z);
+                } else {
+                    this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+                }
+            }
+
+            applySeparation(others) {
+                others.forEach(other => {
+                    if (other === this) return;
+                    const dx = this.mesh.position.x - other.mesh.position.x;
+                    const dz = this.mesh.position.z - other.mesh.position.z;
+                    const distSq = dx * dx + dz * dz;
+                    const minDist = 4.5;
+                    
+                    if (distSq < minDist * minDist && distSq > 0.001) {
+                        const dist = Math.sqrt(distSq);
+                        const force = (minDist - dist) * 0.15; 
+                        const nx = dx / dist;
+                        const nz = dz / dist;
+                        this.mesh.position.x += nx * force;
+                        this.mesh.position.z += nz * force;
+                    }
+                });
+            }
+
+            firePattern(mode) {
+                const now = Date.now();
+                let interval = 2500;
+                if (mode === 'OMNI') interval = 1800;
+                if (now - this.lastAttack < interval) return;
+
+                const origin = this.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+
+                if (mode === 'X') {
+                    for(let i=0; i<4; i++) {
+                        const angle = (Math.PI/4) + (i * Math.PI/2);
+                        const bDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).applyQuaternion(this.mesh.quaternion);
+                        STATE.enemyBullets.push(new Projectile(origin, bDir, true, 2.2));
+                    }
+                } else if (mode === 'HOMING') {
+                    STATE.enemyBullets.push(new Projectile(origin, forward, true, 1.2, 0.6, true));
+                } else if (mode === 'FAN') {
+                    for(let i=-2; i<=2; i++) {
+                        const bDir = forward.clone().applyAxisAngle(new THREE.Vector3(0,1,0), i * 0.35);
+                        STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.5));
+                    }
+                } else if (mode === 'TRIPLE') {
+                    const angles = [0, Math.PI * 0.75, -Math.PI * 0.75];
+                    angles.forEach(a => {
+                        const bDir = forward.clone().applyAxisAngle(new THREE.Vector3(0,1,0), a);
+                        STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.8));
+                    });
+                } else if (mode === 'OMNI') {
+                    for(let i=0; i<12; i++) {
+                        const angle = (i / 12) * Math.PI * 2;
+                        const bDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+                        STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.2, 0.8));
+                    }
+                }
+                this.lastAttack = now;
+            }
+
+            takeHit(dmg) {
+                this.hp -= dmg;
+                this.mats[1].emissive.setRGB(1, 1, 1);
+                this.mats[1].emissiveIntensity = 2.0;
+                setTimeout(() => { 
+                    if(this.mesh && this.mats[1]) {
+                        this.mats[1].emissive.setRGB(0,0,0); 
+                        this.mats[1].emissiveIntensity = 1.0;
+                    }
+                }, 100);
+                return this.hp <= 0;
+            }
+        }
+
+        // --- ユーティリティ ---
+        function flashCrosshair() {
+            const ch = document.getElementById('crosshair');
+            ch.classList.add('hit-mark');
+            setTimeout(() => ch.classList.remove('hit-mark'), 100);
+        }
+
+        function shoot() {
+            const dir = new THREE.Vector3(); 
+            camera.getWorldDirection(dir);
+            STATE.bullets.push(new Projectile(camera.position.clone().add(new THREE.Vector3(0,-0.5,0)), dir, false, 3.0, 0.25));
+            PLAYER.lastShot = Date.now();
+        }
+
+        function startWave() {
+            STATE.wave++;
+            const kanjis = ["","一","二","三","四","五","六","七","八","九","十"];
+            document.getElementById('wave-val').innerText = kanjis[STATE.wave] || STATE.wave;
+            showMsg("第" + (kanjis[STATE.wave] || STATE.wave) + "局");
+            
+            const scale = 1 + (STATE.wave * 0.1);
+            if (STATE.wave % 5 === 0) {
+                STATE.enemies.push(new Enemy('王', scale * 2.5));
+            } else {
+                const types = ['歩', '歩', '香', '桂', '銀', '金', '角', '飛'];
+                const count = 5 + STATE.wave * 2;
+                for(let i=0; i<count; i++) {
+                    const t = types[Math.min(types.length-1, Math.floor(Math.random() * (STATE.wave + 1)))];
+                    STATE.enemies.push(new Enemy(t, scale));
+                }
+            }
+        }
+
+        function takeDamage(amt) {
+            if (STATE.isGameOver) return;
+            PLAYER.hp -= amt;
+            document.getElementById('damage-vignette').classList.add('hit');
+            setTimeout(() => document.getElementById('damage-vignette').classList.remove('hit'), 200);
+            updateUI();
+            if (PLAYER.hp <= 0) {
+                STATE.isGameOver = true;
+                document.getElementById('game-over').style.display = 'flex';
+                if (!isTouchDevice) document.exitPointerLock();
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('hp-bar').style.width = Math.max(0, (PLAYER.hp/PLAYER.maxHp*100)) + "%";
+            document.getElementById('score-val').innerText = STATE.score;
+            document.getElementById('enemy-count').innerText = STATE.enemies.length;
+            for(let k in UPGRADE_COSTS) document.getElementById('cost-'+k).innerText = UPGRADE_COSTS[k];
+        }
+
+        function showMsg(txt) {
+            const el = document.getElementById('msg-overlay');
+            el.innerText = txt; el.style.opacity = 1; el.style.transform = "scale(1)";
+            setTimeout(() => { el.style.opacity = 0; el.style.transform = "scale(1.5)"; }, 2000);
+        }
+
+        window.upgrade = (type) => {
+            if (STATE.score < UPGRADE_COSTS[type]) return;
+            STATE.score -= UPGRADE_COSTS[type];
+            if (type === 'power') PLAYER.power += 1;
+            if (type === 'rate') PLAYER.fireRate = Math.max(60, PLAYER.fireRate - 40);
+            if (type === 'speed') PLAYER.speed += 0.06;
+            if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
+            UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
+            updateUI();
+        };
+
+        // --- キーボード入力（PC用） ---
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            if(e.code === 'Tab') {
+                e.preventDefault();
+                toggleShop();
+            }
+            if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen) {
+                PLAYER.vy = JUMP_FORCE;
+                PLAYER.isGrounded = false;
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        // ショップメニュー開閉の共通関数
+        function toggleShop() {
+            STATE.shopOpen = !STATE.shopOpen;
+            document.getElementById('shop-menu').style.display = STATE.shopOpen ? 'block' : 'none';
+            if(STATE.shopOpen) {
+                if (!isTouchDevice) document.exitPointerLock();
+                PLAYER.isShooting = false;
+                STATE.dashActive = false;
+                const dashBtn = document.getElementById('btn-dash');
+                if (dashBtn) dashBtn.classList.remove('active');
+                joystickVector.x = 0;
+                joystickVector.y = 0;
+                const knob = document.getElementById('joystick-knob');
+                if (knob) knob.style.transform = 'translate(0px, 0px)';
+            }
+        }
+
+        // --- PC用視点移動（マウス） ---
+        window.addEventListener('mousemove', e => {
+            if (!isTouchDevice && document.pointerLockElement && !STATE.shopOpen) {
+                camera.rotation.y -= e.movementX * 0.0025;
+                camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - e.movementY * 0.0025));
+            }
+        });
+
+        window.addEventListener('mousedown', (e) => {
+            if (STATE.shopOpen || STATE.isGameOver || isTouchDevice) return;
+            if (!document.pointerLockElement) { document.body.requestPointerLock(); return; }
+            if (e.button === 0) PLAYER.isShooting = true;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (isTouchDevice) return;
+            if (e.button === 0) PLAYER.isShooting = false;
+        });
+
+
+        // --- モバイル対応：カメラ視点ドラッグ操作 ---
+        let lookTouchId = null;
+        let lastLookX = 0;
+        let lastLookY = 0;
+
+        window.addEventListener('touchstart', e => {
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                let target = touch.target;
+                let isUI = false;
+                
+                // タッチ対象がボタンやジョイスティック領域などのUIであるかを判定
+                while (target && target !== document.body) {
+                    if (target.id === 'joystick-outer' || 
+                        target.id === 'joystick-knob' || 
+                        target.classList.contains('action-btn') || 
+                        target.id === 'shop-menu') {
+                        isUI = true;
+                        break;
+                    }
+                    target = target.parentNode;
+                }
+                
+                // 空きスペースでのタッチを視点移動として記録
+                if (!isUI && lookTouchId === null) {
+                    lookTouchId = touch.identifier;
+                    lastLookX = touch.clientX;
+                    lastLookY = touch.clientY;
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', e => {
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === lookTouchId) {
+                    const dx = touch.clientX - lastLookX;
+                    const dy = touch.clientY - lastLookY;
+                    
+                    camera.rotation.y -= dx * 0.005; 
+                    camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - dy * 0.005));
+                    
+                    lastLookX = touch.clientX;
+                    lastLookY = touch.clientY;
+                    e.preventDefault(); // 視点移動中のスクロール等を抑制
+                }
+            }
+        }, { passive: false });
+
+        const endLook = e => {
+            if (!isTouchDevice) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === lookTouchId) {
+                    lookTouchId = null;
+                }
+            }
+        };
+        window.addEventListener('touchend', endLook);
+        window.addEventListener('touchcancel', endLook);
+
+
+        // --- モバイル対応：ジョイスティック制御 ---
+        const joystickOuter = document.getElementById('joystick-outer');
+        const joystickKnob = document.getElementById('joystick-knob');
+        let joystickTouchId = null;
+        let joystickCenter = { x: 0, y: 0 };
+        const maxRadius = 40; // 最大可動半径(px)
+
+        if (isTouchDevice) {
+            joystickOuter.addEventListener('touchstart', e => {
+                if (STATE.shopOpen || STATE.isGameOver) return;
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                joystickTouchId = touch.identifier;
+                
+                const rect = joystickOuter.getBoundingClientRect();
+                joystickCenter.x = rect.left + rect.width / 2;
+                joystickCenter.y = rect.top + rect.height / 2;
+            }, { passive: false });
+
+            window.addEventListener('touchmove', e => {
+                if (joystickTouchId === null) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === joystickTouchId) {
+                        e.preventDefault();
+                        let dx = touch.clientX - joystickCenter.x;
+                        let dy = touch.clientY - joystickCenter.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > maxRadius) {
+                            dx = (dx / distance) * maxRadius;
+                            dy = (dy / distance) * maxRadius;
+                        }
+                        
+                        joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                        
+                        // 移動ベクトルの正規化 (-1.0 ～ 1.0)
+                        joystickVector.x = dx / maxRadius;
+                        joystickVector.y = dy / maxRadius;
+                    }
+                }
+            }, { passive: false });
+
+            const endJoystick = e => {
+                if (joystickTouchId === null) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const touch = e.changedTouches[i];
+                    if (touch.identifier === joystickTouchId) {
+                        joystickTouchId = null;
+                        joystickKnob.style.transform = 'translate(0px, 0px)';
+                        joystickVector.x = 0;
+                        joystickVector.y = 0;
+                    }
+                }
+            };
+            window.addEventListener('touchend', endJoystick);
+            window.addEventListener('touchcancel', endJoystick);
+
+            // --- モバイル対応：アクションボタン割り当て ---
+            const btnShoot = document.getElementById('btn-shoot');
+            const btnJump = document.getElementById('btn-jump');
+            const btnDash = document.getElementById('btn-dash');
+            const btnShop = document.getElementById('btn-shop');
+
+            // 撃 (長押しで射撃)
+            btnShoot.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (STATE.shopOpen || STATE.isGameOver) return;
+                PLAYER.isShooting = true;
+            }, { passive: false });
+            btnShoot.addEventListener('touchend', e => {
+                e.preventDefault();
+                PLAYER.isShooting = false;
+            }, { passive: false });
+            btnShoot.addEventListener('touchcancel', e => {
+                PLAYER.isShooting = false;
+            });
+
+            // 跳 (ジャンプ)
+            btnJump.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (STATE.shopOpen || STATE.isGameOver) return;
+                if (PLAYER.isGrounded) {
+                    PLAYER.vy = JUMP_FORCE;
+                    PLAYER.isGrounded = false;
+                }
+            }, { passive: false });
+
+            // 走 (トグルダッシュ)
+            btnDash.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (STATE.shopOpen || STATE.isGameOver) return;
+                STATE.dashActive = !STATE.dashActive;
+                if (STATE.dashActive) {
+                    btnDash.classList.add('active');
+                } else {
+                    btnDash.classList.remove('active');
+                }
+            }, { passive: false });
+
+            // 店 (ショップトグル)
+            btnShop.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (STATE.isGameOver) return;
+                toggleShop();
+            }, { passive: false });
+        }
+
+
+        // --- メインループ ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (STATE.isGameOver) return;
+
+            if (!STATE.shopOpen) {
+                const move = new THREE.Vector3();
+                if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
+                if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
+                
+                // ジョイスティックからの移動ベクトルを合算
+                if (isTouchDevice && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+                    move.x += joystickVector.x;
+                    move.z += joystickVector.y;
+                }
+
+                if (move.length() > 0) {
+                    const camRot = camera.rotation.y;
+                    const combinedMove = new THREE.Vector3(
+                        move.x * Math.cos(camRot) + move.z * Math.sin(camRot), 0,
+                        -move.x * Math.sin(camRot) + move.z * Math.cos(camRot)
+                    );
+                    let currentSpeed = PLAYER.speed;
+                    const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive);
+                    if (isDashing) currentSpeed *= DASH_MULT;
+                    camera.position.add(combinedMove.normalize().multiplyScalar(currentSpeed));
+                }
+
+                PLAYER.vy += GRAVITY;
+                camera.position.y += PLAYER.vy;
+                if (camera.position.y <= GROUND_Y) {
+                    camera.position.y = GROUND_Y;
+                    PLAYER.vy = 0;
+                    PLAYER.isGrounded = true;
+                }
+            }
+
+            // 連射処理 (モバイル時とPC時でPointer Lock条件を分岐)
+            if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
+                if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) shoot();
+            }
+
+            for (let i = STATE.bullets.length - 1; i >= 0; i--) {
+                const b = STATE.bullets[i];
+                b.update();
+                if (!b.alive) STATE.bullets.splice(i, 1);
+            }
+            for (let i = STATE.enemyBullets.length - 1; i >= 0; i--) {
+                const eb = STATE.enemyBullets[i];
+                eb.update();
+                if (!eb.alive) STATE.enemyBullets.splice(i, 1);
+            }
+
+            // 回復アイテムの更新・回収判定
+            for (let i = STATE.items.length - 1; i >= 0; i--) {
+                const item = STATE.items[i];
+                item.update();
+                if (!item.alive) {
+                    STATE.items.splice(i, 1);
+                    continue;
+                }
+
+                const dist = item.mesh.position.distanceTo(camera.position);
+                if (dist < 2.5) {
+                    PLAYER.hp = Math.min(PLAYER.maxHp, PLAYER.hp + 25);
+                    updateUI();
+                    item.destroy();
+                    STATE.items.splice(i, 1);
+                }
+            }
+
+            // 敵の更新と衝突判定
+            for (let i = STATE.enemies.length - 1; i >= 0; i--) {
+                const en = STATE.enemies[i];
+                en.update(camera.position, STATE.enemies);
+                
+                for (let j = STATE.bullets.length - 1; j >= 0; j--) {
+                    const b = STATE.bullets[j];
+                    if (!b.alive) continue;
+                    
+                    const dx = b.mesh.position.x - en.mesh.position.x;
+                    const dz = b.mesh.position.z - en.mesh.position.z;
+                    const dy = b.mesh.position.y - (en.mesh.position.y + 1.2);
+
+                    if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
+                        flashCrosshair();
+                        if (en.takeHit(PLAYER.power)) {
+                            STATE.score += (en.type === '王' ? 10000 : 200);
+                            
+                            // ドロップ判定（王は100%、その他は30%）
+                            const dropProb = en.type === '王' ? 1.0 : 0.3;
+                            if (Math.random() < dropProb) {
+                                STATE.items.push(new Item(en.mesh.position));
+                            }
+
+                            scene.remove(en.mesh);
+                            STATE.enemies.splice(i, 1);
+                            updateUI();
+                        }
+                        b.destroy();
+                        STATE.bullets.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+
+            if (STATE.enemies.length === 0 && !STATE.shopOpen) startWave();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        startWave(); updateUI(); animate();
+    </script>
+</body>
+</html>
