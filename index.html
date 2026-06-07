@@ -220,9 +220,15 @@
     <div id="msg-overlay"></div>
     <div id="game-over"><h1>投了</h1><button onclick="location.reload()">再戦を申し込む</button></div>
 
-    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
+    <script type="importmap">{ 
+        "imports": { 
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        } 
+    }</script>
     <script type="module">
         import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
         // --- デバイス判定 ---
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
@@ -300,10 +306,38 @@
         };
         AssetFactory.init();
 
-        const floorTex = AssetFactory.createWoodCanvas(null);
-        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(50, 50);
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({ map: floorTex }));
-        floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+        // --- 地面：GLTFモデルの読み込みと設定 ---
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load(
+            'Hitem3d-1780824059413.glb',
+            (gltf) => {
+                const shogiBoard = gltf.scene;
+
+                // 位置（x, y, z）、回転（x, y, z）、縮尺スケール（x, y, z）の初期設定
+                // ※ 将棋盤モデルの原点位置や大きさに応じて数値を変更してください
+                shogiBoard.position.set(0, 0, 0); 
+                shogiBoard.rotation.set(0, 0, 0); 
+                shogiBoard.scale.set(1.0, 1.0, 1.0); 
+
+                // 影を有効化、およびマテリアルの質感を調整するループ処理
+                shogiBoard.traverse((node) => {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        
+                        if (node.material) {
+                            node.material.roughness = 0.8; // 木の反射を抑えて自然な質感を出す設定
+                        }
+                    }
+                });
+
+                scene.add(shogiBoard);
+            },
+            undefined,
+            (error) => {
+                console.error('将棋盤モデルの読み込みに失敗しました:', error);
+            }
+        );
 
         // --- 弾丸クラス ---
         class Projectile {
