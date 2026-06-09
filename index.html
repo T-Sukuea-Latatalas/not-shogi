@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SHOGI FRONTIER: GOKU - 物理衝突・香車強化版</title>
+    <title>将棋モドキ</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap');
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; font-family: 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght=600&family=Yuji Syuku:wght=400;700&display=swap');
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: 'Yuji Syuku', 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
         canvas { display: block; touch-action: none; }
         #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
         #damage-vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; box-shadow: inset 0 0 100px rgba(174, 31, 35, 0); transition: box-shadow 0.3s; }
@@ -19,11 +19,54 @@
         #wave-container { position: absolute; bottom: 50px; right: 50px; text-align: right; }
         .wave-text { font-size: 4rem; color: #ae1f23; text-shadow: 2px 2px 0px white; }
         .enemy-count { font-size: 1.2rem; color: #2c3e50; font-weight: bold; }
-        #score-container { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: #f5f5f0; color: #0d0d0d; padding: 10px 40px; border-radius: 5px; box-shadow: 0 5px 0 #ccc, 0 10px 20px rgba(0,0,0,0.2); font-size: 1.5rem; font-weight: bold; border: 2px solid #d4af37; }
-        #shop-menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #f5f5f0; color: #0d0d0d; padding: 40px; border: 10px double #ae1f23; pointer-events: auto; display: none; min-width: 320px; box-shadow: 0 0 100px rgba(0,0,0,0.5); z-index: 100; }
-        .shop-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 10px; border-bottom: 1px dashed #999; cursor: pointer; }
-        .shop-item:hover { background: #eee; color: #ae1f23; }
-        #msg-overlay { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 100px; color: #ae1f23; pointer-events: none; text-shadow: 3px 3px 0px white; opacity: 0; transform: scale(1.5); transition: all 0.5s; z-index: 30; }
+        #score-container { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: #f5f5f0; color: #0d0d0d; padding: 10px 40px; border-radius: 5px; box-shadow: 0 5px 0 #ccc, 0 10px 20px rgba(0,0,0,0.2); font-size: 1.5rem; font-weight: bold; border: 2px solid #d4af37; pointer-events: auto; cursor: pointer; z-index: 25; }
+        
+        /* ショップメニュー */
+        #shop-menu {
+            position: absolute;
+            top: 25%;
+            right: 20px;
+            width: 280px;
+            background: rgba(245, 245, 240, 0.75);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            color: #0d0d0d;
+            padding: 20px;
+            border: 6px double #ae1f23;
+            pointer-events: auto;
+            display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 100;
+            box-sizing: border-box;
+        }
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 10px;
+            border-bottom: 1px dashed #999;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .shop-item:hover {
+            background: rgba(174, 31, 35, 0.08);
+            color: #ae1f23;
+        }
+        .shop-item.selected {
+            background: rgba(174, 31, 35, 0.15) !important;
+            border-left: 4px solid #ae1f23;
+            font-weight: bold;
+            color: #ae1f23;
+        }
+        .shop-marker {
+            margin-right: 5px;
+            font-family: monospace;
+            display: inline-block;
+            width: 15px;
+            text-align: center;
+        }
+
+        #msg-overlay { position: absolute; top: 35%; width: 100%; text-align: center; font-size: 70px; color: #ae1f23; pointer-events: none; text-shadow: 3px 3px 0px white; opacity: 0; transform: scale(1.5); transition: all 0.5s; z-index: 30; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; border: 2px solid #ae1f23; border-radius: 50%; transition: transform 0.1s, border-color 0.1s; }
         #crosshair.hit-mark { transform: translate(-50%, -50%) scale(1.5); border-color: #ffffff; border-width: 4px; }
         #game-over { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #ae1f23; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
@@ -91,7 +134,7 @@
             color: #ae1f23;
             font-size: 26px;
             font-weight: bold;
-            font-family: 'Klee One', serif;
+            font-family: 'Yuji Syuku', 'Klee One', serif;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -109,6 +152,364 @@
             color: #f5f5f0;
             border-color: #d4af37;
         }
+
+        /* --- 和風ステージ管理UIデザイン --- */
+        #loading-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(13, 13, 13, 0.92); /* 薄墨色 */
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f0;
+            font-family: 'Yuji Syuku', 'Klee One', serif;
+            box-sizing: border-box;
+        }
+        #loading-screen h2 {
+            font-size: 3rem;
+            color: #d4af37;
+            letter-spacing: 0.3em;
+            animation: pulse 1.5s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        /* --- 新・和モダン幽玄ステージ選択画面 --- */
+        #stage-select-menu {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1c1c1c 0%, #0d0d0d 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f0;
+            font-family: 'Yuji Syuku', 'Klee One', serif;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .deco-circle {
+            position: absolute;
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, rgba(174, 31, 35, 0.15) 0%, rgba(212, 175, 55, 0.05) 50%, rgba(0,0,0,0) 70%);
+            border-radius: 50%;
+            z-index: 1;
+            pointer-events: none;
+            filter: blur(20px);
+            animation: pulse-bg 10s infinite alternate ease-in-out;
+        }
+        @keyframes pulse-bg {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.15); opacity: 0.9; }
+        }
+        .menu-inner {
+            position: relative;
+            z-index: 2;
+            width: 90%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .washitsu-header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+        }
+        .sub-title {
+            display: block;
+            font-size: 0.85rem;
+            letter-spacing: 0.4em;
+            color: #d4af37;
+            margin-bottom: 5px;
+            opacity: 0.8;
+            font-family: monospace;
+        }
+        .miyabi-title {
+            font-size: 3.5rem;
+            margin: 0;
+            color: #f5f5f0;
+            text-shadow: 0px 4px 15px rgba(174, 31, 35, 0.6);
+            letter-spacing: 0.3em;
+            font-weight: 700;
+        }
+        .kazarikei {
+            position: relative;
+            width: 180px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #d4af37 20%, #ae1f23 50%, #d4af37 80%, transparent);
+            margin: 15px auto 0 auto;
+        }
+        .kazarikei::before, .kazarikei::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #d4af37;
+            transform: rotate(45deg);
+            top: -3px;
+        }
+        .kazarikei::before { left: 35px; }
+        .kazarikei::after { right: 35px; }
+
+        .stage-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: 50vh;
+            overflow-y: auto;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .stage-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .stage-list::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+        }
+        .stage-list::-webkit-scrollbar-thumb {
+            background: #ae1f23;
+            border-radius: 3px;
+        }
+        .stage-btn {
+            background: rgba(20, 20, 20, 0.85);
+            border: 1px solid rgba(214, 175, 55, 0.3);
+            border-left: 5px solid #ae1f23;
+            color: #e5e5e0;
+            padding: 18px 25px;
+            font-size: 1.2rem;
+            font-family: inherit;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            border-radius: 2px;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stage-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(90deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0) 100%);
+            pointer-events: none;
+        }
+        .stage-btn:hover {
+            transform: translateY(-3px);
+            border-color: #d4af37;
+            border-left-width: 8px;
+            color: #ffffff;
+            box-shadow: 0 8px 25px rgba(174, 31, 35, 0.3), 0 0 10px rgba(212, 175, 55, 0.2);
+            background: rgba(35, 25, 25, 0.95);
+        }
+        .stage-btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.15), transparent);
+            transform: skewX(-25deg);
+            pointer-events: none;
+        }
+        .stage-btn:hover::after {
+            left: 150%;
+            transition: all 0.8s ease;
+        }
+
+        /* --- 新・和モダン幽玄ステージクリア画面 --- */
+        #stage-clear-menu {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1a1515 0%, #0a0808 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f0;
+            font-family: 'Yuji Syuku', 'Klee One', serif;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        .ensou-container {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .ensou-circle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 6px solid transparent;
+            border-top: 6px solid #ae1f23;
+            border-right: 6px solid rgba(212, 175, 55, 0.8);
+            border-bottom: 4px solid rgba(174, 31, 35, 0.5);
+            border-left: 2px solid transparent;
+            border-radius: 50%;
+            filter: drop-shadow(0 0 8px rgba(174,31,35,0.4));
+            animation: rotate-ensou 25s infinite linear;
+        }
+        .ensou-circle::before {
+            content: '';
+            position: absolute;
+            top: -15px; left: -15px; right: -15px; bottom: -15px;
+            border: 3px solid transparent;
+            border-top: 3px solid #d4af37;
+            border-left: 2px solid rgba(174,31,35,0.4);
+            border-bottom: 1px solid transparent;
+            border-radius: 50%;
+            animation: rotate-ensou-reverse 15s infinite linear;
+            opacity: 0.7;
+        }
+        @keyframes rotate-ensou {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @keyframes rotate-ensou-reverse {
+            0% { transform: rotate(360deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .clear-main-title {
+            font-size: 5.5rem;
+            color: #f5f5f0;
+            text-shadow: 0 0 20px rgba(174, 31, 35, 0.8), 2px 2px 0px #000;
+            margin: 0;
+            z-index: 2;
+            letter-spacing: 0.2em;
+            margin-right: -0.2em;
+            animation: bounce-in 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes bounce-in {
+            0% { transform: scale(0.3); opacity: 0; }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .clear-info-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 50px;
+            width: 80%;
+            max-width: 400px;
+        }
+        .clear-line {
+            flex-grow: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #d4af37, transparent);
+        }
+        .clear-info {
+            font-size: 1.5rem;
+            color: #d4af37;
+            letter-spacing: 0.2em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            margin: 0;
+        }
+        .clear-btn-group {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            z-index: 3;
+        }
+        .clear-btn {
+            font-family: inherit;
+            font-size: 1.25rem;
+            padding: 14px 40px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            letter-spacing: 0.1em;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+            position: relative;
+            overflow: hidden;
+        }
+        .clear-btn.next-btn {
+            background: #ae1f23;
+            color: #f5f5f0;
+            border: 2px solid #d4af37;
+        }
+        .clear-btn.next-btn:hover {
+            background: #d4af37;
+            color: #1a1a1a;
+            border-color: #f5f5f0;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(212, 175, 55, 0.4);
+        }
+        .clear-btn.back-btn {
+            background: #111111;
+            color: #e5e5e0;
+            border: 2px solid #ae1f23;
+        }
+        .clear-btn.back-btn:hover {
+            background: #ae1f23;
+            color: #ffffff;
+            border-color: #d4af37;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(174, 31, 35, 0.4);
+        }
+
+        .sakura-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+        .petal {
+            position: absolute;
+            background: #d4af37;
+            border-radius: 50% 0 50% 50%;
+            opacity: 0.7;
+            animation: fall 10s infinite linear;
+        }
+        .petal:nth-child(even) {
+            background: #e3a8ab;
+        }
+        @keyframes fall {
+            0% {
+                top: -10%;
+                transform: translateX(0) rotate(0deg) scale(0.8);
+                opacity: 0;
+            }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% {
+                top: 110%;
+                transform: translateX(120px) rotate(360deg) scale(0.5);
+                opacity: 0;
+            }
+        }
+        .petal.p1 { left: 10%; width: 12px; height: 12px; animation-duration: 8s; animation-delay: 0s; }
+        .petal.p2 { left: 25%; width: 8px; height: 8px; animation-duration: 12s; animation-delay: 2s; }
+        .petal.p3 { left: 40%; width: 15px; height: 15px; animation-duration: 10s; animation-delay: 1s; }
+        .petal.p4 { left: 55%; width: 10px; height: 10px; animation-duration: 9s; animation-delay: 4s; }
+        .petal.p5 { left: 70%; width: 14px; height: 14px; animation-duration: 11s; animation-delay: 3s; }
+        .petal.p6 { left: 85%; width: 9px; height: 9px; animation-duration: 14s; animation-delay: 0.5s; }
+        .petal.p7 { left: 95%; width: 11px; height: 11px; animation-duration: 7s; animation-delay: 5s; }
+        .petal.p8 { left: 30%; width: 13px; height: 13px; animation-duration: 13s; animation-delay: 6s; }
 
         /* レスポンシブ調整 */
         @media (max-width: 768px) {
@@ -167,11 +568,49 @@
                 font-size: 20px;
             }
             #shop-menu {
-                padding: 20px;
-                min-width: 280px;
+                right: 15px;
+                top: 70px;
+                width: 240px;
+                padding: 15px;
             }
             #msg-overlay {
-                font-size: 50px;
+                font-size: 40px;
+            }
+            
+            /* 新・和モダンステージUIレスポンシブ */
+            .miyabi-title {
+                font-size: 2.2rem;
+            }
+            .sub-title {
+                font-size: 0.75rem;
+            }
+            .stage-btn {
+                padding: 14px 18px;
+                font-size: 1.05rem;
+            }
+            .ensou-container {
+                width: 180px;
+                height: 180px;
+            }
+            .clear-main-title {
+                font-size: 3.5rem;
+            }
+            .clear-info {
+                font-size: 1.1rem;
+            }
+            .clear-btn {
+                padding: 10px 25px;
+                font-size: 1.05rem;
+            }
+            .clear-btn-group {
+                gap: 15px;
+            }
+            .deco-circle {
+                width: 250px;
+                height: 250px;
+            }
+            #loading-screen h2 {
+                font-size: 2rem;
             }
         }
     </style>
@@ -192,59 +631,146 @@
             <div class="wave-text">第<span id="wave-val">一</span>局</div>
         </div>
         <div id="crosshair"></div>
+        
+        <!-- 改良版ショップメニュー -->
         <div id="shop-menu">
-            <h2 style="text-align:center;">御品書き</h2>
-            <div class="shop-item" onclick="upgrade('power')"><span>腕力強化 (威力)</span> <span id="cost-power">500</span></div>
-            <div class="shop-item" onclick="upgrade('rate')"><span>連射技術 (速度)</span> <span id="cost-rate">800</span></div>
-            <div class="shop-item" onclick="upgrade('speed')"><span>瞬身の術 (移動)</span> <span id="cost-speed">400</span></div>
-            <div class="shop-item" onclick="upgrade('hp')"><span>強靭な魂 (体力)</span> <span id="cost-hp">600</span></div>
-            <p id="shop-close-desc" style="font-size:12px; text-align:center; color:#666; margin-top:20px;">[Tab] キーで閉じる</p>
+            <h2 style="text-align:center; margin-top:0; margin-bottom:15px; font-size:1.4rem;">御品書き</h2>
+            <div class="shop-item" id="shop-item-0" onclick="upgradeByIndex(0)">
+                <div><span class="shop-marker">　</span><span>腕力強化 (威力)</span></div> <span id="cost-power">500</span>
+            </div>
+            <div class="shop-item" id="shop-item-1" onclick="upgradeByIndex(1)">
+                <div><span class="shop-marker">　</span><span>連射技術 (速度)</span></div> <span id="cost-rate">800</span>
+            </div>
+            <div class="shop-item" id="shop-item-2" onclick="upgradeByIndex(2)">
+                <div><span class="shop-marker">　</span><span>瞬身の術 (移動)</span></div> <span id="cost-speed">400</span>
+            </div>
+            <div class="shop-item" id="shop-item-3" onclick="upgradeByIndex(3)">
+                <div><span class="shop-marker">　</span><span>強靭な魂 (体力)</span></div> <span id="cost-hp">600</span>
+            </div>
+            <p id="shop-close-desc" style="font-size:11px; text-align:center; color:#444; margin-top:15px; margin-bottom:0; line-height:1.4;">
+                [Tab]: 開閉<br>
+                [Wheel]: 選択 | [右Click]: 購入
+            </p>
         </div>
         
         <!-- バーチャルコントローラー -->
         <div id="touch-controls">
-            <div id="joystick-outer">
-                <div id="joystick-knob"></div>
-            </div>
-            <div id="action-buttons">
-                <button id="btn-shoot" class="action-btn">撃</button>
-                <button id="btn-jump" class="action-btn">跳</button>
-                <button id="btn-dash" class="action-btn">走</button>
-                <button id="btn-shop" class="action-btn">店</button>
+            <div id="ui-layer">
+                <div id="touch-controls">
+                    <div id="joystick-outer">
+                        <div id="joystick-knob"></div>
+                    </div>
+                    <div id="action-buttons">
+                        <button id="btn-shoot" class="action-btn">撃</button>
+                        <button id="btn-jump" class="action-btn">跳</button>
+                        <button id="btn-dash" class="action-btn">走</button>
+                        <button id="btn-shop" class="action-btn">店</button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物</div>
     </div>
 
+    <!-- 1. ロード画面 -->
+    <div id="loading-screen">
+        <div id="loading-content" style="text-align: center; max-width: 600px; padding: 20px;">
+            <h2 id="loading-title">盤上生成中...</h2>
+            <p id="loading-status" style="font-size: 1.1rem; color: #aaa; margin-top: 10px; line-height: 1.6;">スプレッドシートからデータを取得しています。</p>
+            <div id="loading-error-actions" style="display: none; margin-top: 30px;">
+                <button class="clear-btn" onclick="startWithFallback()" style="font-size: 1.2rem; padding: 12px 35px; border: 2px solid #ae1f23; background: #d4af37; color: #1a1a1a;">予備の盤上で開始</button>
+                <div style="margin-top: 25px; font-size: 0.9rem; color: #888; text-align: left; line-height: 1.8; border-top: 1px solid #333; padding-top: 15px;">
+                    <strong>【読み込みが失敗する原因】</strong><br>
+                    1. <strong>CORSポリシーによるブロック（ローカル実行時のみ）</strong>: ローカルのHTMLファイルをブラウザに直接ドラッグ＆ドロップして実行している場合（アドレスバーが `file:///` から始まっている場合）、外部データ取得が強制的に遮断されます。<br>※GitHub等にアップロードした状態では、この問題は発生しません。<br><br>
+                    2. <strong>権限設定ミス</strong>: スプレッドシートの「共有」設定にて、アクセス範囲が「<strong>リンクを知っている全員（閲覧者）</strong>」になっているかご確認ください。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 新・ステージ選択画面 -->
+    <div id="stage-select-menu" style="display:none;">
+        <div class="deco-circle"></div>
+        <div class="menu-inner">
+            <div class="washitsu-header">
+                <span class="sub-title">SELECT STAGE</span>
+                <h1 class="miyabi-title">盤上選択</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="stage-list" id="stage-list">
+                <!-- JavaScriptから動的に生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 新・ステージクリア画面 -->
+    <div id="stage-clear-menu" style="display:none;">
+        <div class="sakura-container">
+            <div class="petal p1"></div>
+            <div class="petal p2"></div>
+            <div class="petal p3"></div>
+            <div class="petal p4"></div>
+            <div class="petal p5"></div>
+            <div class="petal p6"></div>
+            <div class="petal p7"></div>
+            <div class="petal p8"></div>
+        </div>
+        <div class="ensou-container">
+            <div class="ensou-circle"></div>
+            <h1 class="clear-main-title">見事</h1>
+        </div>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">局を制しました</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button id="btn-next-stage" class="clear-btn next-btn" onclick="nextStage()">次の局へ</button>
+            <button class="clear-btn back-btn" onclick="backToStageSelect()">盤上選択に戻る</button>
+        </div>
+    </div>
+
     <div id="msg-overlay"></div>
     <div id="game-over"><h1>投了</h1><button onclick="location.reload()">再戦を申し込む</button></div>
 
-    <script type="importmap">{ 
-        "imports": { 
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        } 
-    }</script>
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }</script>
     <script type="module">
         import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
         // --- デバイス判定 ---
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isTouchDevice) {
             document.body.classList.add('touch-device');
-            document.getElementById('shop-close-desc').innerText = '[店] ボタン または [Tab] キーで閉じる';
+            document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>項目タップで購入';
         }
 
         // --- 定数・システム変数 ---
-        const COLORS = { sky: 0x87CEEB, wood: 0xe3c88d, gold: 0xd4af37, vermillion: 0xae1f23, ink: 0x1a1a1a, spirit: 0x800080 };
-        const STATE = { wave: 0, score: 0, isGameOver: false, shopOpen: false, enemies: [], bullets: [], enemyBullets: [], items: [], dashActive: false };
+        const COLORS = { sky: 0xd2dad2, wood: 0xe3c88d, gold: 0xd4af37, vermillion: 0xae1f23, ink: 0x1a1a1a, spirit: 0x800080 };
+        const STATE = { 
+            wave: 0, 
+            score: 0, 
+            isGameOver: false, 
+            shopOpen: false, 
+            enemies: [], 
+            bullets: [], 
+            enemyBullets: [], 
+            items: [], 
+            dashActive: false,
+            stageActive: false 
+        };
         
+        const PIECE_NAMES = {
+            '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
+        };
+
         const GRAVITY = -0.015;
         const JUMP_FORCE = 0.4;
-        const GROUND_Y = 5.0;
+        const GROUND_Y = 5.0; 
+        const EYE_HEIGHT = 3.5; 
         const DASH_MULT = 1.8;
+        const BOARD_SIZE = 80;
+        const BOARD_THICKNESS = 3;
 
         const PLAYER = { 
             hp: 100, maxHp: 100, 
@@ -254,27 +780,31 @@
             vy: 0, isGrounded: true, isShooting: false 
         };
         const UPGRADE_COSTS = { power: 500, rate: 800, speed: 400, hp: 600 };
+        
+        const upgradeKeys = ['power', 'rate', 'speed', 'hp'];
+        let selectedShopIndex = 0;
 
-        // バーチャル移動ベクトル
         const joystickVector = { x: 0, y: 0 };
 
-        // --- Three.js 初期化 ---
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(COLORS.sky);
-        scene.fog = new THREE.FogExp2(COLORS.sky, 0.007);
+        // ==========================================
+        // 【設定】スプレッドシートのID、またはスプレッドシートのURL全体をここに貼り付けてください。
+        // ==========================================
+        const SPREADSHEET_ID = 'https://docs.google.com/spreadsheets/d/1n4711vrRLoDwGGBPO81u28C2fK2PvRZUY91MIbP05As/edit?usp=sharing'; 
+        const SHEET_GID = '0';
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.rotation.order = 'YXZ';
-        camera.position.set(0, GROUND_Y, 0);
+        // 万が一のオフライン時や設定失敗時に動作するローカルの予備ステージデータ
+        const FALLBACK_STAGES = [
+            { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0,角: 0, 飛: 0, 王: 0 },
+            { stage: 2, name: "香車の一閃", 歩: 3, 香: 2, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0 },
+            { stage: 3, name: "桂馬の奇襲", 歩: 4, 香: 0, 桂: 3, 銀: 1, 金: 0, 角: 0, 飛: 0, 王: 0 },
+            { stage: 4, name: "飛角の盤上", 歩: 2, 香: 1, 桂: 0, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 0 },
+            { stage: 5, name: "玉将の間", 歩: 6, 香: 2, 桂: 2, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 1 }
+        ];
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        document.body.appendChild(renderer.domElement);
+        let stages = [];
+        let currentStageIndex = 0;
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambient);
-        const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(50, 100, 50); sun.castShadow = true; scene.add(sun);
+        let scene, camera, renderer, sun, boardGroup;
 
         // --- アセットファクトリー ---
         const AssetFactory = {
@@ -282,62 +812,652 @@
             init() {
                 const shape = new THREE.Shape();
                 shape.moveTo(-1.0, 0); shape.lineTo(1.0, 0); shape.lineTo(0.85, 1.8); shape.lineTo(0, 2.4); shape.lineTo(-0.85, 1.8); shape.closePath();
-                this.pieceGeom = new THREE.ExtrudeGeometry(shape, { depth: 0.4, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05 });
+                
+                const customUVGenerator = {
+                    generateTopUV: function ( geometry, vertices, indexA, indexB, indexC ) {
+                        const ax = vertices[ indexA * 3 ];
+                        const ay = vertices[ indexA * 3 + 1 ];
+                        const bx = vertices[ indexB * 3 ];
+                        const by = vertices[ indexB * 3 + 1 ];
+                        const cx = vertices[ indexC * 3 ];
+                        const cy = vertices[ indexC * 3 + 1 ];
+
+                        return [
+                            new THREE.Vector2( ( ax + 1.0 ) / 2.0, ay / 2.4 ),
+                            new THREE.Vector2( ( bx + 1.0 ) / 2.0, by / 2.4 ),
+                            new THREE.Vector2( ( cx + 1.0 ) / 2.0, cy / 2.4 )
+                        ];
+                    },
+                    generateSideWallUV: function ( geometry, vertices, indexA, indexB, indexC, indexD ) {
+                        return [
+                            new THREE.Vector2( 0, 0 ),
+                            new THREE.Vector2( 1, 0 ),
+                            new THREE.Vector2( 1, 1 ),
+                            new THREE.Vector2( 0, 1 )
+                        ];
+                    }
+                };
+
+                this.pieceGeom = new THREE.ExtrudeGeometry(shape, { 
+                    depth: 0.4, 
+                    bevelEnabled: true, 
+                    bevelSize: 0.05, 
+                    bevelThickness: 0.05,
+                    UVGenerator: customUVGenerator
+                });
                 this.pieceGeom.center(); this.pieceGeom.translate(0, 1.2, 0);
             },
-            createWoodCanvas(text, color = COLORS.ink) {
-                const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+            createWoodCanvas(text, colorNum = COLORS.ink, isBoard = false) {
+                const canvas = document.createElement('canvas'); 
+                canvas.width = 1024; 
+                canvas.height = 1024;
                 const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#e3c88d'; ctx.fillRect(0, 0, 256, 256);
+                ctx.fillStyle = '#e3c88d'; 
+                ctx.fillRect(0, 0, 1024, 1024);
+                
                 ctx.strokeStyle = '#d1b272';
-                for(let i=0; i<20; i++) { ctx.lineWidth = Math.random()*2+1; let x = Math.random()*256; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x+(Math.random()-0.5)*20, 256); ctx.stroke(); }
-                if (text) { ctx.fillStyle = color; ctx.font = "bold 140px 'Klee One'"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, 128, 140); }
+                for(let i=0; i<40; i++) { 
+                    ctx.lineWidth = Math.random()*3+1.5; 
+                    let x = Math.random()*1024; 
+                    ctx.beginPath(); 
+                    ctx.moveTo(x, 0); 
+                    ctx.lineTo(x+(Math.random()-0.5)*80, 1024); 
+                    ctx.stroke(); 
+                }
+
+                if (isBoard) {
+                    ctx.strokeStyle = '#1a1a1a';
+                    ctx.lineWidth = 4;
+                    const margin = 80;
+                    const size = 1024 - margin * 2;
+                    const step = size / 9;
+                    
+                    for (let i = 0; i <= 9; i++) {
+                        const pos = margin + i * step;
+                        ctx.beginPath();
+                        ctx.moveTo(pos, margin);
+                        ctx.lineTo(pos, 1024 - margin);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(margin, pos);
+                        ctx.lineTo(1024 - margin, pos);
+                        ctx.stroke();
+                    }
+
+                    const dotRadius = 10;
+                    ctx.fillStyle = '#1a1a1a';
+                    const stars = [3, 6];
+                    stars.forEach(r => {
+                        stars.forEach(c => {
+                            const px = margin + r * step;
+                            const py = margin + c * step;
+                            ctx.beginPath();
+                            ctx.arc(px, py, dotRadius, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
+                    });
+                } else if (text) { 
+                    let cssColor = '#1a1a1a';
+                    if (typeof colorNum === 'number') {
+                        cssColor = "#" + colorNum.toString(16).padStart(6, '0');
+                    } else if (typeof colorNum === 'string') {
+                        cssColor = colorNum;
+                    }
+                    ctx.fillStyle = cssColor; 
+                    ctx.textAlign = "center"; 
+                    ctx.textBaseline = "middle"; 
+
+                    if (text.length === 2) {
+                        ctx.font = "bold 320px 'Yuji Syuku', 'Klee One', 'Yu Mincho', 'MS Mincho', serif"; 
+                        ctx.fillText(text[0], 512, 420); 
+
+                        ctx.font = "bold 260px 'Yuji Syuku', 'Klee One', 'Yu Mincho', 'MS Mincho', serif"; 
+                        ctx.fillText(text[1], 512, 710); 
+                    } else {
+                        ctx.font = "bold 460px 'Yuji Syuku', 'Klee One', 'Yu Mincho', 'MS Mincho', serif"; 
+                        ctx.fillText(text, 512, 540); 
+                    }
+                }
                 return new THREE.CanvasTexture(canvas);
             },
             getMaterials(type) {
                 const isGold = (type === '王' || type === '金');
-                const frontTex = this.createWoodCanvas(type, (isGold || type === '香' || type === '飛' || type === '角') ? COLORS.vermillion : COLORS.ink);
+                const fullName = PIECE_NAMES[type] || type;
+                const textColor = COLORS.ink; 
+
+                const frontTex = this.createWoodCanvas(fullName, textColor);
                 const sideTex = this.createWoodCanvas(null);
+
                 return [
-                    new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.8 }),
-                    new THREE.MeshStandardMaterial({ map: frontTex, roughness: 0.8, color: isGold ? COLORS.gold : 0xffffff, emissive: new THREE.Color(0x000000) })
+                    new THREE.MeshStandardMaterial({ map: frontTex, roughness: 0.8, color: isGold ? COLORS.gold : 0xffffff, emissive: new THREE.Color(0x000000) }),
+                    new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.8 })
                 ];
-            }
-        };
-        AssetFactory.init();
+            },
+            createMossTexture() {
+                const canvas = document.createElement('canvas'); 
+                canvas.width = 512; 
+                canvas.height = 512;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#2d5a27'; 
+                ctx.fillRect(0, 0, 512, 512);
+                
+                for (let i = 0; i < 8000; i++) {
+                    const x = Math.random() * 512;
+                    const y = Math.random() * 512;
+                    const r = Math.random() * 4 + 1;
+                    const green = Math.floor(Math.random() * 60) + 40; 
+                    ctx.fillStyle = `rgb(${Math.floor(green * 0.45)}, ${green}, ${Math.floor(green * 0.2)})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                return new THREE.CanvasTexture(canvas);
+            },
+            createKaresansuiTexture() {
+                const canvas = document.createElement('canvas'); 
+                canvas.width = 1024; 
+                canvas.height = 1024;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#dbd7c9'; 
+                ctx.fillRect(0, 0, 1024, 1024);
+                
+                ctx.fillStyle = 'rgba(0,0,0,0.03)';
+                for (let i = 0; i < 20000; i++) {
+                    ctx.fillRect(Math.random()*1024, Math.random()*1024, 2, 2);
+                }
+                
+                ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+                ctx.lineWidth = 4;
+                for (let y = -50; y < 1074; y += 24) {
+                    ctx.beginPath();
+                    for (let x = 0; x <= 1024; x += 10) {
+                        const wave = Math.sin(x * 0.03) * 6;
+                        if (x === 0) ctx.moveTo(x, y + wave);
+                        else ctx.lineTo(x, y + wave);
+                    }
+                    ctx.stroke();
+                }
 
-        // --- 地面：GLTFモデルの読み込みと設定 ---
-        const gltfLoader = new GLTFLoader();
-        gltfLoader.load(
-            'Hitem3d-1780824059413.glb',
-            (gltf) => {
-                const shogiBoard = gltf.scene;
-
-                // 位置（x, y, z）、回転（x, y, z）、縮尺スケール（x, y, z）の初期設定
-                // ※ 将棋盤モデルの原点位置や大きさに応じて数値を変更してください
-                shogiBoard.position.set(0, 0, 0); 
-                shogiBoard.rotation.set(0, 0, 0); 
-                shogiBoard.scale.set(1.0, 1.0, 1.0); 
-
-                // 影を有効化、およびマテリアルの質感を調整するループ処理
-                shogiBoard.traverse((node) => {
-                    if (node.isMesh) {
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                        
-                        if (node.material) {
-                            node.material.roughness = 0.8; // 木の反射を抑えて自然な質感を出す設定
-                        }
+                ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+                const ripples = [
+                    {x: 350, y: 350, maxR: 120},
+                    {x: 700, y: 650, maxR: 150},
+                    {x: 200, y: 800, maxR: 100},
+                    {x: 850, y: 250, maxR: 130}
+                ];
+                ripples.forEach(rip => {
+                    for (let r = 10; r < rip.maxR; r += 24) {
+                        ctx.beginPath();
+                        ctx.arc(rip.x, rip.y, r, 0, Math.PI * 2);
+                        ctx.stroke();
                     }
                 });
 
-                scene.add(shogiBoard);
-            },
-            undefined,
-            (error) => {
-                console.error('将棋盤モデルの読み込みに失敗しました:', error);
+                return new THREE.CanvasTexture(canvas);
             }
-        );
+        };
+
+        // --- 庭園用アセット作成ヘルパー ---
+        function createBamboo() {
+            const bamboo = new THREE.Group();
+            const segmentHeight = 4.0;
+            const numSegments = 6 + Math.floor(Math.random() * 4); 
+            const baseRadius = 0.25 + Math.random() * 0.1;
+            
+            const bambooColor = new THREE.Color().setHSL(0.28 + Math.random() * 0.06, 0.5, 0.2 + Math.random() * 0.1);
+            const material = new THREE.MeshStandardMaterial({
+                color: bambooColor, roughness: 0.6, metalness: 0.1
+            });
+            const jointMaterial = new THREE.MeshStandardMaterial({
+                color: bambooColor.clone().multiplyScalar(0.6), roughness: 0.8
+            });
+
+            for (let i = 0; i < numSegments; i++) {
+                const rBottom = baseRadius * (1 - (i * 0.03));
+                const rTop = baseRadius * (1 - ((i + 1) * 0.03));
+                const segGeom = new THREE.CylinderGeometry(rTop, rBottom, segmentHeight - 0.15, 8);
+                const segment = new THREE.Mesh(segGeom, material);
+                segment.position.y = (i * segmentHeight) + (segmentHeight / 2);
+                segment.castShadow = true;
+                segment.receiveShadow = true;
+                bamboo.add(segment);
+
+                if (i < numSegments - 1) {
+                    const jointGeom = new THREE.CylinderGeometry(rTop * 1.18, rTop * 1.18, 0.12, 8);
+                    const joint = new THREE.Mesh(jointGeom, jointMaterial);
+                    joint.position.y = (i + 1) * segmentHeight;
+                    joint.castShadow = true;
+                    bamboo.add(joint);
+                }
+            }
+            return bamboo;
+        }
+
+        function createRock() {
+            const size = 1.8 + Math.random() * 2.2;
+            const geom = new THREE.DodecahedronGeometry(size, 1);
+            
+            const posAttr = geom.attributes.position;
+            for (let i = 0; i < posAttr.count; i++) {
+                posAttr.setX(i, posAttr.getX(i) + (Math.random() - 0.5) * (size * 0.25));
+                posAttr.setY(i, posAttr.getY(i) + (Math.random() - 0.5) * (size * 0.25));
+                posAttr.setZ(i, posAttr.getZ(i) + (Math.random() - 0.5) * (size * 0.25));
+            }
+            geom.computeVertexNormals();
+
+            const rockColor = new THREE.Color(0x60665d).lerp(new THREE.Color(0x3a4538), Math.random() * 0.4);
+            const mat = new THREE.MeshStandardMaterial({
+                color: rockColor, roughness: 0.95, metalness: 0.0
+            });
+            const rock = new THREE.Mesh(geom, mat);
+            rock.scale.set(1.2 + Math.random() * 0.6, 0.7 + Math.random() * 0.4, 1.2 + Math.random() * 0.6);
+            rock.rotation.set(Math.random() * 0.5, Math.random() * Math.PI, Math.random() * 0.5);
+            rock.position.y = -0.5; 
+            rock.castShadow = true;
+            rock.receiveShadow = true;
+            return rock;
+        }
+
+        function createLantern() {
+            const lantern = new THREE.Group();
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x7a8077, roughness: 0.9 });
+            const lightMat = new THREE.MeshStandardMaterial({ 
+                color: 0xffd060, emissive: 0xffa040, emissiveIntensity: 2.0 
+            });
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 1.4), stoneMat);
+            base.position.y = 0.15; base.castShadow = true; base.receiveShadow = true;
+            lantern.add(base);
+
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.42, 1.6, 8), stoneMat);
+            pillar.position.y = 1.1; pillar.castShadow = true; pillar.receiveShadow = true;
+            lantern.add(pillar);
+
+            const platform = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.25, 1.2), stoneMat);
+            platform.position.y = 2.025; platform.castShadow = true; platform.receiveShadow = true;
+            lantern.add(platform);
+
+            const fireBoxLight = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), lightMat);
+            fireBoxLight.position.y = 2.5;
+            lantern.add(fireBoxLight);
+            
+            for (let x of [-0.38, 0.38]) {
+                for (let z of [-0.38, 0.38]) {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.1), stoneMat);
+                    frame.position.set(x, 2.5, z); frame.castShadow = true;
+                    lantern.add(frame);
+                }
+            }
+            const frameTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.9), stoneMat);
+            frameTop.position.y = 2.89;
+            lantern.add(frameTop);
+
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.5, 4), stoneMat);
+            roof.rotation.y = Math.PI / 4; roof.position.y = 3.18; roof.castShadow = true;
+            lantern.add(roof);
+
+            const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), stoneMat);
+            jewel.scale.set(1, 1.3, 1); jewel.position.y = 3.53; jewel.castShadow = true;
+            lantern.add(jewel);
+
+            const light = new THREE.PointLight(0xffb050, 1.2, 20);
+            light.position.set(0, 2.5, 0); light.castShadow = true; light.shadow.bias = -0.001;
+            lantern.add(light);
+
+            return lantern;
+        }
+
+        // --- 起動シーケンス ---
+        document.fonts.ready.then(() => {
+            initGame();
+        });
+
+        function initGame() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(COLORS.sky);
+            scene.fog = new THREE.FogExp2(COLORS.sky, 0.009);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.rotation.order = 'YXZ';
+            camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            const ambient = new THREE.AmbientLight(0xffffff, 0.8); scene.add(ambient);
+            
+            sun = new THREE.DirectionalLight(0xfffcf3, 1.3); 
+            sun.position.set(60, 80, 40); 
+            sun.castShadow = true; 
+            sun.shadow.mapSize.width = 2048;
+            sun.shadow.mapSize.height = 2048;
+            sun.shadow.camera.near = 0.5;
+            sun.shadow.camera.far = 200;
+            const d = 60;
+            sun.shadow.camera.left = -d;
+            sun.shadow.camera.right = d;
+            sun.shadow.camera.top = d;
+            sun.shadow.camera.bottom = -d;
+            sun.shadow.bias = -0.0005;
+            scene.add(sun);
+
+            AssetFactory.init();
+
+            const mossTex = AssetFactory.createMossTexture();
+            mossTex.wrapS = THREE.RepeatWrapping;
+            mossTex.wrapT = THREE.RepeatWrapping;
+            mossTex.repeat.set(12, 12);
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(1000, 1000), 
+                new THREE.MeshStandardMaterial({ map: mossTex, roughness: 1.0, metalness: 0.0 })
+            );
+            floor.rotation.x = -Math.PI / 2; 
+            floor.receiveShadow = true; 
+            scene.add(floor);
+
+            const sandTex = AssetFactory.createKaresansuiTexture();
+            const sandFloor = new THREE.Mesh(
+                new THREE.PlaneGeometry(160, 160),
+                new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.9, metalness: 0.0 })
+            );
+            sandFloor.rotation.x = -Math.PI / 2;
+            sandFloor.position.y = 0.02; 
+            sandFloor.receiveShadow = true;
+            scene.add(sandFloor);
+
+            const bambooGroup = new THREE.Group();
+            const bambooCount = 120;
+            for (let i = 0; i < bambooCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 85 + Math.random() * 115; 
+                const bx = Math.cos(angle) * dist;
+                const bz = Math.sin(angle) * dist;
+                
+                const bamboo = createBamboo();
+                bamboo.position.set(bx, 0, bz);
+                bamboo.rotation.x = (Math.random() - 0.5) * 0.06;
+                bamboo.rotation.z = (Math.random() - 0.5) * 0.06;
+                bamboo.rotation.y = Math.random() * Math.PI;
+                bambooGroup.add(bamboo);
+            }
+            scene.add(bambooGroup);
+
+            const rockGroup = new THREE.Group();
+            const rockCount = 20;
+            for (let i = 0; i < rockCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 65 + Math.random() * 25;
+                const rx = Math.cos(angle) * dist;
+                const rz = Math.sin(angle) * dist;
+                
+                const rock = createRock();
+                rock.position.set(rx, 0, rz);
+                rockGroup.add(rock);
+            }
+            scene.add(rockGroup);
+
+            const lanternPositions = [
+                { x: -55, z: -55 }, { x: 55, z: -55 }, { x: -55, z: 55 }, { x: 55, z: 55 }
+            ];
+            lanternPositions.forEach(pos => {
+                const lantern = createLantern();
+                lantern.position.set(pos.x, 0, pos.z);
+                lantern.scale.set(1.5, 1.5, 1.5); 
+                scene.add(lantern);
+            });
+
+            boardGroup = new THREE.Group();
+
+            const boardTopTex = AssetFactory.createWoodCanvas(null, COLORS.ink, true);
+            const boardSideTex = AssetFactory.createWoodCanvas(null);
+            const boardMaterials = [
+                new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 }), 
+                new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 }), 
+                new THREE.MeshStandardMaterial({ map: boardTopTex, roughness: 0.8 }),  
+                new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 }), 
+                new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 }), 
+                new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 })  
+            ];
+
+            const boardMesh = new THREE.Mesh(new THREE.BoxGeometry(BOARD_SIZE, BOARD_THICKNESS, BOARD_SIZE), boardMaterials);
+            boardMesh.position.y = GROUND_Y - BOARD_THICKNESS / 2; 
+            boardMesh.receiveShadow = true;
+            boardMesh.castShadow = true;
+            boardGroup.add(boardMesh);
+
+            const legMaterial = new THREE.MeshStandardMaterial({ map: boardSideTex, roughness: 0.8 });
+            function createLeg(x, z) {
+                const leg = new THREE.Group();
+                const bottomPart = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 0.8, 0.4, 16), legMaterial);
+                bottomPart.position.y = 0.2; bottomPart.castShadow = true; leg.add(bottomPart);
+
+                const midPart = new THREE.Mesh(new THREE.SphereGeometry(1.5, 16, 16), legMaterial);
+                midPart.scale.set(1, 0.6, 1); midPart.position.y = 1.1; midPart.castShadow = true; leg.add(midPart);
+
+                const topPart = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 0.4, 16), legMaterial);
+                topPart.position.y = 1.8; topPart.castShadow = true; leg.add(topPart);
+
+                leg.position.set(x, 0, z);
+                return leg;
+            }
+
+            const legOffset = BOARD_SIZE / 2 - 6;
+            boardGroup.add(createLeg(-legOffset, -legOffset));
+            boardGroup.add(createLeg(legOffset, -legOffset));
+            boardGroup.add(createLeg(-legOffset, legOffset));
+            boardGroup.add(createLeg(legOffset, legOffset));
+
+            scene.add(boardGroup);
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // 読み込みシーケンス開始
+            loadStages(); 
+            updateUI(); 
+            animate();
+        }
+
+        // --- CSVパース・ステージロード処理 ---
+        async function loadStages() {
+            let input = SPREADSHEET_ID.trim();
+            let url = '';
+
+            // スプレッドシートのURLから実際のシートIDを安全に切り出す [2]
+            let cleanedId = input;
+            if (cleanedId.includes('/d/')) {
+                cleanedId = cleanedId.split('/d/')[1].split('/')[0];
+            }
+
+            // CORS問題を回避するため Google Visualization API エンドポイントを使用
+            url = `https://docs.google.com/spreadsheets/d/${cleanedId}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
+
+            try {
+                if (cleanedId === "" || cleanedId.includes("YOUR_SPREADSHEET_ID")) {
+                    throw new Error("スプレッドシートID、またはURLが設定されていません。予備データを使用します。");
+                }
+                
+                console.log("読み込みURL (CORSバイパス版):", url);
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
+                const csvText = await res.text();
+                stages = parseCSV(csvText);
+                if (stages.length === 0) throw new Error("Parsed empty stages");
+                console.log("スプレッドシートデータ（CSV）の解析に成功しました。", stages);
+
+                // 正常にロードされた場合は選択メニューへ遷移
+                buildStageSelectUI();
+                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('stage-select-menu').style.display = 'flex';
+            } catch (e) {
+                console.warn("スプレッドシートのロードに失敗しました。フォールバックUIを表示します:", e);
+                
+                // ロード画面をエラー表示に切り替える
+                document.getElementById('loading-title').innerText = "読み込み制限検知";
+                document.getElementById('loading-title').style.color = "#ae1f23";
+                document.getElementById('loading-status').innerHTML = `スプレッドシートの取得に失敗しました。<br><span style="color:#ae1f23; font-size:0.95rem;">理由: ${e.message}</span>`;
+                document.getElementById('loading-error-actions').style.display = "block";
+            }
+        }
+
+        // 予備データで開始するグローバルバインド関数
+        window.startWithFallback = () => {
+            stages = JSON.parse(JSON.stringify(FALLBACK_STAGES));
+            buildStageSelectUI();
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('stage-select-menu').style.display = 'flex';
+        };
+
+        function parseCSV(text) {
+            const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length < 2) return [];
+            
+            // 区切り文字（カンマ、タブ、セミコロン）を自動判別
+            let delimiter = ',';
+            if (lines[0].includes('\t')) delimiter = '\t';
+            else if (lines[0].includes(';')) delimiter = ';';
+
+            // ダブルクォーテーションで囲まれたカンマを無視して分割するスプリッター
+            function splitCSVLine(line, delim) {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"' || char === "'") {
+                        inQuotes = !inQuotes;
+                    } else if (char === delim && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            }
+
+            const headers = splitCSVLine(lines[0], delimiter).map(h => h.replace(/^[\uFEFF"']|["']$/g, ''));
+            const parsed = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const cols = splitCSVLine(lines[i], delimiter).map(c => c.replace(/^["']|["']$/g, ''));
+                if (cols.length < headers.length) continue;
+                
+                const rowObj = {};
+                headers.forEach((header, index) => {
+                    const val = cols[index];
+                    if (header === 'stage') {
+                        rowObj[header] = parseInt(val, 10);
+                    } else if (header === 'name') {
+                        rowObj[header] = val;
+                    } else {
+                        rowObj[header] = parseInt(val, 10) || 0;
+                    }
+                });
+                parsed.push(rowObj);
+            }
+            return parsed;
+        }
+
+        function buildStageSelectUI() {
+            const container = document.getElementById('stage-list');
+            container.innerHTML = '';
+            stages.forEach((stg, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'stage-btn';
+                btn.onclick = () => selectStage(index);
+                
+                const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
+                const waveName = kanjis[stg.stage] || stg.stage;
+                
+                btn.innerHTML = `<span>第${waveName}局：${stg.name}</span> <span style="color:#d4af37;">開始</span>`;
+                container.appendChild(btn);
+            });
+        }
+
+        function selectStage(index) {
+            currentStageIndex = index;
+            document.getElementById('stage-select-menu').style.display = 'none';
+            document.getElementById('stage-clear-menu').style.display = 'none';
+            startStage(stages[index]);
+        }
+
+        function startStage(stageData) {
+            // シーンのクリーンアップ
+            STATE.enemies.forEach(en => { if(en.mesh) scene.remove(en.mesh); });
+            STATE.bullets.forEach(b => { if(b.mesh) scene.remove(b.mesh); });
+            STATE.enemyBullets.forEach(eb => { if(eb.mesh) scene.remove(eb.mesh); });
+            STATE.items.forEach(it => { if(it.mesh) scene.remove(it.mesh); });
+
+            STATE.enemies = [];
+            STATE.bullets = [];
+            STATE.enemyBullets = [];
+            STATE.items = [];
+
+            // プレイヤー初期化
+            PLAYER.hp = PLAYER.maxHp;
+            PLAYER.vy = 0;
+            PLAYER.isGrounded = true;
+            PLAYER.isShooting = false;
+            camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
+            camera.rotation.set(0, 0, 0);
+
+            // ステージ情報更新
+            const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
+            const waveName = kanjis[stageData.stage] || stageData.stage;
+            document.getElementById('wave-val').innerText = waveName;
+            showMsg("第" + waveName + "局：" + stageData.name);
+
+            // 敵の生成
+            const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+            const scale = 1 + (stageData.stage * 0.1);
+
+            enemyTypes.forEach(type => {
+                const count = stageData[type] || 0;
+                for (let i = 0; i < count; i++) {
+                    const enemyScale = (type === '王') ? scale * 2.5 : scale;
+                    STATE.enemies.push(new Enemy(type, enemyScale));
+                }
+            });
+
+            STATE.isGameOver = false;
+            STATE.stageActive = true;
+            updateUI();
+        }
+
+        function showStageClear() {
+            STATE.stageActive = false;
+            if (!isTouchDevice && document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            document.getElementById('stage-clear-menu').style.display = 'flex';
+            
+            const nextBtn = document.getElementById('btn-next-stage');
+            if (currentStageIndex + 1 < stages.length) {
+                nextBtn.style.display = 'inline-block';
+            } else {
+                nextBtn.style.display = 'none'; 
+            }
+        }
+
+        window.nextStage = () => {
+            if (currentStageIndex + 1 < stages.length) {
+                selectStage(currentStageIndex + 1);
+            }
+        };
+
+        window.backToStageSelect = () => {
+            document.getElementById('stage-clear-menu').style.display = 'none';
+            document.getElementById('stage-select-menu').style.display = 'flex';
+        };
 
         // --- 弾丸クラス ---
         class Projectile {
@@ -356,16 +1476,17 @@
             update() {
                 if (this.isHoming && this.isEnemy) {
                     const targetDir = new THREE.Vector3().subVectors(camera.position, this.mesh.position).normalize();
-                    this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
+                    this.velocity.grid = this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
                 }
                 this.mesh.position.add(this.velocity);
                 this.life--;
                 if (this.life <= 0) this.destroy();
 
                 if (this.isEnemy) {
-                    const dist = this.mesh.position.distanceTo(camera.position);
-                    if (dist < 2.0 && Math.abs(this.mesh.position.y - camera.position.y) < 2.5) {
-                        takeDamage(this.isHoming ? 15 : 10);
+                    const playerBody = camera.position.clone().add(new THREE.Vector3(0, -EYE_HEIGHT / 2, 0));
+                    const dist = this.mesh.position.distanceTo(playerBody);
+                    if (dist < 2.0) {
+                        takeDamage(this.isHoming ? 5 : 10);
                         this.destroy();
                     }
                 }
@@ -373,17 +1494,13 @@
             destroy() { this.alive = false; scene.remove(this.mesh); }
         }
 
-        // --- 回復アイテムクラス ---
+        // --- 回刻アイテムクラス ---
         class Item {
             constructor(pos) {
                 this.mesh = new THREE.Mesh(
                     new THREE.SphereGeometry(0.5, 16, 16),
                     new THREE.MeshStandardMaterial({
-                        color: 0x2ecc71,
-                        emissive: 0x2ecc71,
-                        emissiveIntensity: 0.6,
-                        roughness: 0.2,
-                        metalness: 0.1
+                        color: 0x2ecc71, emissive: 0x2ecc71, emissiveIntensity: 0.6, roughness: 0.2, metalness: 0.1
                     })
                 );
                 this.baseY = GROUND_Y;
@@ -402,10 +1519,7 @@
                 this.life--;
                 if (this.life <= 0) this.destroy();
             }
-            destroy() {
-                this.alive = false;
-                scene.remove(this.mesh);
-            }
+            destroy() { this.alive = false; scene.remove(this.mesh); }
         }
 
         // --- 敵クラス ---
@@ -417,8 +1531,8 @@
                 this.mesh.castShadow = true;
                 
                 const angle = Math.random() * Math.PI * 2;
-                const dist = 60 + Math.random() * 20;
-                this.mesh.position.set(Math.cos(angle)*dist, 0, Math.sin(angle)*dist);
+                const dist = 20 + Math.random() * 15;
+                this.mesh.position.set(Math.cos(angle)*dist, GROUND_Y, Math.sin(angle)*dist);
                 
                 this.hp = (this.getHPBase(type)) * waveScale;
                 this.maxHp = this.hp;
@@ -440,6 +1554,10 @@
             }
 
             update(playerPos, others) {
+                if (this.type !== '桂') {
+                    this.mesh.position.y = GROUND_Y;
+                }
+
                 const diff = new THREE.Vector3().subVectors(playerPos, this.mesh.position);
                 const xzDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
                 const dir = diff.clone().normalize().multiplyScalar(1);
@@ -456,7 +1574,7 @@
                     case '桂':
                         const jumpCycle = Date.now() * 0.005;
                         const jumpHeight = Math.max(0, Math.sin(jumpCycle) * 6);
-                        this.mesh.position.y = jumpHeight;
+                        this.mesh.position.y = GROUND_Y + jumpHeight;
                         if (jumpHeight > 0.1) { 
                             this.mesh.position.add(dir.clone().multiplyScalar(this.speed * 2.0)); 
                         }
@@ -464,19 +1582,29 @@
                     case '香':
                         if (this.chargeState === 0) {
                             this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
-                            if (xzDist < 25 && Date.now() - this.lastAttack > 1500) { 
+                            
+                            if (xzDist < 25 && Date.now() - this.lastAttack > 2000) { 
                                 this.chargeState = 1; 
-                                this.chargeTarget.copy(playerPos).add(dir.clone().multiplyScalar(5));
-                                this.mats[1].emissive.setRGB(0.8, 0, 0);
+                                this.chargeTarget.copy(playerPos).add(dir.clone().multiplyScalar(4));
+                                this.chargeStartTime = Date.now();
+                                this.mats[0].emissive.setRGB(0.8, 0, 0); 
                             }
                         } else if (this.chargeState === 1) {
-                            const cDir = new THREE.Vector3().subVectors(this.chargeTarget, this.mesh.position).normalize();
+                            const cDir = new THREE.Vector3().subVectors(this.chargeTarget, this.mesh.position);
                             cDir.y = 0;
-                            this.mesh.position.add(cDir.multiplyScalar(this.speed * 8));
-                            if (this.mesh.position.distanceTo(this.chargeTarget) < 2 || xzDist > 120) {
+                            const distToTarget = cDir.length();
+                            cDir.normalize();
+                            
+                            this.mesh.position.add(cDir.multiplyScalar(this.speed * 6));
+                            
+                            const elapsed = Date.now() - this.chargeStartTime;
+                            const limit = BOARD_SIZE / 2 - 2.5;
+                            const isAtWall = Math.abs(this.mesh.position.x) >= limit || Math.abs(this.mesh.position.z) >= limit;
+                            
+                            if (distToTarget < 2.0 || elapsed > 1500 || isAtWall) {
                                 this.chargeState = 0; 
                                 this.lastAttack = Date.now(); 
-                                this.mats[1].emissive.setRGB(0, 0, 0); 
+                                this.mats[0].emissive.setRGB(0, 0, 0); 
                             }
                         }
                         break;
@@ -505,6 +1633,10 @@
                 }
 
                 this.applySeparation(others);
+
+                const eLimit = BOARD_SIZE / 2 - 2.0;
+                this.mesh.position.x = Math.max(-eLimit, Math.min(eLimit, this.mesh.position.x));
+                this.mesh.position.z = Math.max(-eLimit, Math.min(eLimit, this.mesh.position.z));
 
                 if (this.type === '香' && this.chargeState === 1) {
                     this.mesh.lookAt(this.chargeTarget.x, this.mesh.position.y, this.chargeTarget.z);
@@ -539,30 +1671,35 @@
                 if (now - this.lastAttack < interval) return;
 
                 const origin = this.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-                const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.mesh.quaternion);
+                
+                const toPlayer = new THREE.Vector3().subVectors(camera.position, origin);
+                toPlayer.y = 0;
+                toPlayer.normalize();
 
                 if (mode === 'X') {
+                    const baseAngle = Math.atan2(toPlayer.z, toPlayer.x);
                     for(let i=0; i<4; i++) {
-                        const angle = (Math.PI/4) + (i * Math.PI/2);
-                        const bDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).applyQuaternion(this.mesh.quaternion);
+                        const angle = baseAngle + (i * Math.PI / 2);
+                        const bDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
                         STATE.enemyBullets.push(new Projectile(origin, bDir, true, 2.2));
                     }
                 } else if (mode === 'HOMING') {
-                    STATE.enemyBullets.push(new Projectile(origin, forward, true, 1.2, 0.6, true));
+                    STATE.enemyBullets.push(new Projectile(origin, toPlayer, true, 0.8, 0.6, true));
                 } else if (mode === 'FAN') {
                     for(let i=-2; i<=2; i++) {
-                        const bDir = forward.clone().applyAxisAngle(new THREE.Vector3(0,1,0), i * 0.35);
+                        const bDir = toPlayer.clone().applyAxisAngle(new THREE.Vector3(0,1,0), i * 0.35);
                         STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.5));
                     }
                 } else if (mode === 'TRIPLE') {
                     const angles = [0, Math.PI * 0.75, -Math.PI * 0.75];
                     angles.forEach(a => {
-                        const bDir = forward.clone().applyAxisAngle(new THREE.Vector3(0,1,0), a);
+                        const bDir = toPlayer.clone().applyAxisAngle(new THREE.Vector3(0,1,0), a);
                         STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.8));
                     });
                 } else if (mode === 'OMNI') {
+                    const baseAngle = Math.atan2(toPlayer.z, toPlayer.x);
                     for(let i=0; i<12; i++) {
-                        const angle = (i / 12) * Math.PI * 2;
+                        const angle = baseAngle + (i / 12) * Math.PI * 2;
                         const bDir = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
                         STATE.enemyBullets.push(new Projectile(origin, bDir, true, 1.2, 0.8));
                     }
@@ -572,12 +1709,12 @@
 
             takeHit(dmg) {
                 this.hp -= dmg;
-                this.mats[1].emissive.setRGB(1, 1, 1);
-                this.mats[1].emissiveIntensity = 2.0;
+                this.mats[0].emissive.setRGB(1, 1, 1); 
+                this.mats[0].emissiveIntensity = 2.0;
                 setTimeout(() => { 
-                    if(this.mesh && this.mats[1]) {
-                        this.mats[1].emissive.setRGB(0,0,0); 
-                        this.mats[1].emissiveIntensity = 1.0;
+                    if(this.mesh && this.mats[0]) {
+                        this.mats[0].emissive.setRGB(0,0,0); 
+                        this.mats[0].emissiveIntensity = 1.0;
                     }
                 }, 100);
                 return this.hp <= 0;
@@ -598,25 +1735,6 @@
             PLAYER.lastShot = Date.now();
         }
 
-        function startWave() {
-            STATE.wave++;
-            const kanjis = ["","一","二","三","四","五","六","七","八","九","十"];
-            document.getElementById('wave-val').innerText = kanjis[STATE.wave] || STATE.wave;
-            showMsg("第" + (kanjis[STATE.wave] || STATE.wave) + "局");
-            
-            const scale = 1 + (STATE.wave * 0.1);
-            if (STATE.wave % 5 === 0) {
-                STATE.enemies.push(new Enemy('王', scale * 2.5));
-            } else {
-                const types = ['歩', '歩', '香', '桂', '銀', '金', '角', '飛'];
-                const count = 5 + STATE.wave * 2;
-                for(let i=0; i<count; i++) {
-                    const t = types[Math.min(types.length-1, Math.floor(Math.random() * (STATE.wave + 1)))];
-                    STATE.enemies.push(new Enemy(t, scale));
-                }
-            }
-        }
-
         function takeDamage(amt) {
             if (STATE.isGameOver) return;
             PLAYER.hp -= amt;
@@ -625,22 +1743,10 @@
             updateUI();
             if (PLAYER.hp <= 0) {
                 STATE.isGameOver = true;
+                STATE.stageActive = false;
                 document.getElementById('game-over').style.display = 'flex';
-                if (!isTouchDevice) document.exitPointerLock();
+                if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock();
             }
-        }
-
-        function updateUI() {
-            document.getElementById('hp-bar').style.width = Math.max(0, (PLAYER.hp/PLAYER.maxHp*100)) + "%";
-            document.getElementById('score-val').innerText = STATE.score;
-            document.getElementById('enemy-count').innerText = STATE.enemies.length;
-            for(let k in UPGRADE_COSTS) document.getElementById('cost-'+k).innerText = UPGRADE_COSTS[k];
-        }
-
-        function showMsg(txt) {
-            const el = document.getElementById('msg-overlay');
-            el.innerText = txt; el.style.opacity = 1; el.style.transform = "scale(1)";
-            setTimeout(() => { el.style.opacity = 0; el.style.transform = "scale(1.5)"; }, 2000);
         }
 
         window.upgrade = (type) => {
@@ -654,48 +1760,139 @@
             updateUI();
         };
 
-        // --- キーボード入力（PC用） ---
+        window.upgradeByIndex = (index) => {
+            const key = upgradeKeys[index];
+            if (key) {
+                window.upgrade(key);
+            }
+        };
+
+        function updateShopHighlight() {
+            for (let i = 0; i < 4; i++) {
+                const itemEl = document.getElementById(`shop-item-${i}`);
+                if (!itemEl) continue;
+                const markerEl = itemEl.querySelector('.shop-marker');
+                if (i === selectedShopIndex) {
+                    itemEl.classList.add('selected');
+                    if (markerEl) markerEl.innerText = '▶';
+                } else {
+                    itemEl.classList.remove('selected');
+                    if (markerEl) markerEl.innerText = '　';
+                }
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('hp-bar').style.width = Math.max(0, (PLAYER.hp/PLAYER.maxHp*100)) + "%";
+            document.getElementById('score-val').innerText = STATE.score;
+            document.getElementById('enemy-count').innerText = STATE.enemies.length;
+            for(let k in UPGRADE_COSTS) document.getElementById('cost-'+k).innerText = UPGRADE_COSTS[k];
+            updateShopHighlight();
+        }
+
+        function showMsg(txt) {
+            const el = document.getElementById('msg-overlay');
+            el.innerText = txt; el.style.opacity = 1; el.style.transform = "scale(1)";
+            setTimeout(() => { el.style.opacity = 0; el.style.transform = "scale(1.5)"; }, 2000);
+        }
+
+        // --- デバッグ機能の定義 ---
+        function activateDebugMode() {
+            PLAYER.maxHp = 9999;
+            PLAYER.hp = 9999;
+            PLAYER.power = 100;
+            PLAYER.fireRate = 50;
+            PLAYER.speed = 1.2;
+            STATE.score = 999999;
+            showMsg("神変不可思議（全能力極限解放）");
+            updateUI();
+        }
+
+        // --- キーボード入力 ---
         const keys = {};
+        const debugKeys = ['d', 'e', 'b', 'u', 'g'];
+        let debugIndex = 0;
+
         window.addEventListener('keydown', e => {
             keys[e.code] = true;
             if(e.code === 'Tab') {
                 e.preventDefault();
                 toggleShop();
             }
-            if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen) {
+            if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive) {
                 PLAYER.vy = JUMP_FORCE;
                 PLAYER.isGrounded = false;
+            }
+
+            const k = e.key.toLowerCase();
+            if (k === debugKeys[debugIndex]) {
+                debugIndex++;
+                if (debugIndex === debugKeys.length) {
+                    activateDebugMode();
+                    debugIndex = 0;
+                }
+            } else {
+                if (k === debugKeys[0]) debugIndex = 1;
+                else debugIndex = 0;
             }
         });
         window.addEventListener('keyup', e => keys[e.code] = false);
 
-        // ショップメニュー開閉の共通関数
+        let clickCount = 0;
+        let lastClickTime = 0;
+        document.getElementById('score-container').addEventListener('click', e => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastClickTime > 2000) clickCount = 0;
+            clickCount++;
+            lastClickTime = now;
+            if (clickCount >= 5) {
+                activateDebugMode();
+                clickCount = 0;
+            }
+        });
+
         function toggleShop() {
+            if(!STATE.stageActive) return; 
             STATE.shopOpen = !STATE.shopOpen;
             document.getElementById('shop-menu').style.display = STATE.shopOpen ? 'block' : 'none';
             if(STATE.shopOpen) {
-                if (!isTouchDevice) document.exitPointerLock();
                 PLAYER.isShooting = false;
-                STATE.dashActive = false;
-                const dashBtn = document.getElementById('btn-dash');
-                if (dashBtn) dashBtn.classList.remove('active');
-                joystickVector.x = 0;
-                joystickVector.y = 0;
-                const knob = document.getElementById('joystick-knob');
-                if (knob) knob.style.transform = 'translate(0px, 0px)';
+                updateShopHighlight();
             }
         }
 
-        // --- PC用視点移動（マウス） ---
+        // --- 視点移動 ---
         window.addEventListener('mousemove', e => {
-            if (!isTouchDevice && document.pointerLockElement && !STATE.shopOpen) {
+            if (!isTouchDevice && document.pointerLockElement && STATE.stageActive) {
                 camera.rotation.y -= e.movementX * 0.0025;
                 camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - e.movementY * 0.0025));
             }
         });
 
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        window.addEventListener('wheel', e => {
+            if (!STATE.shopOpen) return;
+            if (e.deltaY > 0) {
+                selectedShopIndex = (selectedShopIndex + 1) % 4;
+            } else if (e.deltaY < 0) {
+                selectedShopIndex = (selectedShopIndex - 1 + 4) % 4;
+            }
+            updateShopHighlight();
+        }, { passive: true });
+
         window.addEventListener('mousedown', (e) => {
-            if (STATE.shopOpen || STATE.isGameOver || isTouchDevice) return;
+            if (!STATE.stageActive || STATE.isGameOver) return;
+
+            if (e.button === 2) {
+                if (STATE.shopOpen) {
+                    window.upgradeByIndex(selectedShopIndex);
+                }
+                return;
+            }
+
+            if (STATE.shopOpen || isTouchDevice) return;
             if (!document.pointerLockElement) { document.body.requestPointerLock(); return; }
             if (e.button === 0) PLAYER.isShooting = true;
         });
@@ -706,19 +1903,18 @@
         });
 
 
-        // --- モバイル対応：カメラ視点ドラッグ操作 ---
+        // --- モバイル対応：タッチ制御 ---
         let lookTouchId = null;
         let lastLookX = 0;
         let lastLookY = 0;
 
         window.addEventListener('touchstart', e => {
-            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver) return;
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 let target = touch.target;
                 let isUI = false;
                 
-                // タッチ対象がボタンやジョイスティック領域などのUIであるかを判定
                 while (target && target !== document.body) {
                     if (target.id === 'joystick-outer' || 
                         target.id === 'joystick-knob' || 
@@ -730,7 +1926,6 @@
                     target = target.parentNode;
                 }
                 
-                // 空きスペースでのタッチを視点移動として記録
                 if (!isUI && lookTouchId === null) {
                     lookTouchId = touch.identifier;
                     lastLookX = touch.clientX;
@@ -740,7 +1935,7 @@
         }, { passive: false });
 
         window.addEventListener('touchmove', e => {
-            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver) return;
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 if (touch.identifier === lookTouchId) {
@@ -752,7 +1947,7 @@
                     
                     lastLookX = touch.clientX;
                     lastLookY = touch.clientY;
-                    e.preventDefault(); // 視点移動中のスクロール等を抑制
+                    e.preventDefault(); 
                 }
             }
         }, { passive: false });
@@ -775,11 +1970,11 @@
         const joystickKnob = document.getElementById('joystick-knob');
         let joystickTouchId = null;
         let joystickCenter = { x: 0, y: 0 };
-        const maxRadius = 40; // 最大可動半径(px)
+        const maxRadius = 40; 
 
         if (isTouchDevice) {
             joystickOuter.addEventListener('touchstart', e => {
-                if (STATE.shopOpen || STATE.isGameOver) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
                 e.preventDefault();
                 const touch = e.changedTouches[0];
                 joystickTouchId = touch.identifier;
@@ -805,8 +2000,6 @@
                         }
                         
                         joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-                        
-                        // 移動ベクトルの正規化 (-1.0 ～ 1.0)
                         joystickVector.x = dx / maxRadius;
                         joystickVector.y = dy / maxRadius;
                     }
@@ -828,16 +2021,14 @@
             window.addEventListener('touchend', endJoystick);
             window.addEventListener('touchcancel', endJoystick);
 
-            // --- モバイル対応：アクションボタン割り当て ---
             const btnShoot = document.getElementById('btn-shoot');
             const btnJump = document.getElementById('btn-jump');
             const btnDash = document.getElementById('btn-dash');
             const btnShop = document.getElementById('btn-shop');
 
-            // 撃 (長押しで射撃)
             btnShoot.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
                 PLAYER.isShooting = true;
             }, { passive: false });
             btnShoot.addEventListener('touchend', e => {
@@ -848,20 +2039,18 @@
                 PLAYER.isShooting = false;
             });
 
-            // 跳 (ジャンプ)
             btnJump.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
                 if (PLAYER.isGrounded) {
                     PLAYER.vy = JUMP_FORCE;
                     PLAYER.isGrounded = false;
                 }
             }, { passive: false });
 
-            // 走 (トグルダッシュ)
             btnDash.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
                 STATE.dashActive = !STATE.dashActive;
                 if (STATE.dashActive) {
                     btnDash.classList.add('active');
@@ -870,10 +2059,9 @@
                 }
             }, { passive: false });
 
-            // 店 (ショップトグル)
             btnShop.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.isGameOver) return;
+                if (STATE.isGameOver || !STATE.stageActive) return;
                 toggleShop();
             }, { passive: false });
         }
@@ -884,39 +2072,43 @@
             requestAnimationFrame(animate);
             if (STATE.isGameOver) return;
 
-            if (!STATE.shopOpen) {
-                const move = new THREE.Vector3();
-                if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
-                if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
-                
-                // ジョイスティックからの移動ベクトルを合算
-                if (isTouchDevice && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
-                    move.x += joystickVector.x;
-                    move.z += joystickVector.y;
-                }
+            renderer.render(scene, camera);
 
-                if (move.length() > 0) {
-                    const camRot = camera.rotation.y;
-                    const combinedMove = new THREE.Vector3(
-                        move.x * Math.cos(camRot) + move.z * Math.sin(camRot), 0,
-                        -move.x * Math.sin(camRot) + move.z * Math.cos(camRot)
-                    );
-                    let currentSpeed = PLAYER.speed;
-                    const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive);
-                    if (isDashing) currentSpeed *= DASH_MULT;
-                    camera.position.add(combinedMove.normalize().multiplyScalar(currentSpeed));
-                }
+            if (!STATE.stageActive) return;
 
-                PLAYER.vy += GRAVITY;
-                camera.position.y += PLAYER.vy;
-                if (camera.position.y <= GROUND_Y) {
-                    camera.position.y = GROUND_Y;
-                    PLAYER.vy = 0;
-                    PLAYER.isGrounded = true;
-                }
+            const move = new THREE.Vector3();
+            if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
+            if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
+            
+            if (isTouchDevice && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+                move.x += joystickVector.x;
+                move.z += joystickVector.y;
             }
 
-            // 連射処理 (モバイル時とPC時でPointer Lock条件を分岐)
+            if (move.length() > 0) {
+                const camRot = camera.rotation.y;
+                const combinedMove = new THREE.Vector3(
+                    move.x * Math.cos(camRot) + move.z * Math.sin(camRot), 0,
+                    -move.x * Math.sin(camRot) + move.z * Math.cos(camRot)
+                );
+                let currentSpeed = PLAYER.speed;
+                const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive);
+                if (isDashing) currentSpeed *= DASH_MULT;
+                camera.position.add(combinedMove.normalize().multiplyScalar(currentSpeed));
+            }
+
+            const pLimit = BOARD_SIZE / 2 - 2.0;
+            camera.position.x = Math.max(-pLimit, Math.min(pLimit, camera.position.x));
+            camera.position.z = Math.max(-pLimit, Math.min(pLimit, camera.position.z));
+
+            PLAYER.vy += GRAVITY;
+            camera.position.y += PLAYER.vy;
+            if (camera.position.y <= GROUND_Y + EYE_HEIGHT) {
+                camera.position.y = GROUND_Y + EYE_HEIGHT;
+                PLAYER.vy = 0;
+                PLAYER.isGrounded = true;
+            }
+
             if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
                 if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) shoot();
             }
@@ -932,7 +2124,6 @@
                 if (!eb.alive) STATE.enemyBullets.splice(i, 1);
             }
 
-            // 回復アイテムの更新・回収判定
             for (let i = STATE.items.length - 1; i >= 0; i--) {
                 const item = STATE.items[i];
                 item.update();
@@ -941,7 +2132,8 @@
                     continue;
                 }
 
-                const dist = item.mesh.position.distanceTo(camera.position);
+                const playerGroundPos = new THREE.Vector3(camera.position.x, GROUND_Y, camera.position.z);
+                const dist = item.mesh.position.distanceTo(playerGroundPos);
                 if (dist < 2.5) {
                     PLAYER.hp = Math.min(PLAYER.maxHp, PLAYER.hp + 25);
                     updateUI();
@@ -950,7 +2142,6 @@
                 }
             }
 
-            // 敵の更新と衝突判定
             for (let i = STATE.enemies.length - 1; i >= 0; i--) {
                 const en = STATE.enemies[i];
                 en.update(camera.position, STATE.enemies);
@@ -968,7 +2159,6 @@
                         if (en.takeHit(PLAYER.power)) {
                             STATE.score += (en.type === '王' ? 10000 : 200);
                             
-                            // ドロップ判定（王は100%、その他は30%）
                             const dropProb = en.type === '王' ? 1.0 : 0.3;
                             if (Math.random() < dropProb) {
                                 STATE.items.push(new Item(en.mesh.position));
@@ -985,17 +2175,10 @@
                 }
             }
 
-            if (STATE.enemies.length === 0 && !STATE.shopOpen) startWave();
-            renderer.render(scene, camera);
+            if (STATE.enemies.length === 0 && !STATE.shopOpen) {
+                showStageClear();
+            }
         }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        startWave(); updateUI(); animate();
     </script>
 </body>
 </html>
