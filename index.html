@@ -104,6 +104,7 @@
             touch-action: none;
             pointer-events: auto;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            z-index: 85;
         }
         #joystick-knob {
             width: 50px;
@@ -114,42 +115,77 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
 
-        /* アクションボタン群 */
-        #action-buttons {
-            position: absolute;
-            bottom: 40px;
-            right: 40px;
-            display: grid;
-            grid-template-columns: repeat(3, 80px);
-            grid-gap: 15px;
+        /* 和モダン・バーチャルボタン（共通） */
+        .touch-btn {
             pointer-events: auto;
-        }
-        .action-btn {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
             border: 3px solid #ae1f23;
             background: rgba(245, 245, 240, 0.85);
             color: #ae1f23;
-            font-size: 26px;
-            font-weight: bold;
             font-family: 'Yuji Syuku', 'Klee One', serif;
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
             user-select: none;
             touch-action: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15), inset 0 0 8px rgba(174, 31, 35, 0.05);
             outline: none;
+            transition: background 0.15s, color 0.15s, transform 0.1s, border-color 0.15s, box-shadow 0.1s;
+            position: absolute;
+            z-index: 85;
         }
-        .action-btn:active {
+        .touch-btn:active {
             background: #ae1f23;
             color: #f5f5f0;
+            transform: scale(0.92);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-        .action-btn.active {
+        .touch-btn.active {
             background: #ae1f23;
             color: #f5f5f0;
             border-color: #d4af37;
+        }
+
+        /* メニューボタン（短冊風角丸四角形） */
+        .menu-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            border-radius: 8px;
+            top: 40px;
+        }
+        #btn-shop {
+            left: 40px;
+        }
+        #btn-pause {
+            right: 40px;
+        }
+
+        /* 戦闘ボタン（アークレイアウト） */
+        #btn-shoot {
+            width: 100px;
+            height: 100px;
+            font-size: 34px;
+            border-radius: 50%;
+            border-width: 4px;
+            bottom: 70px;
+            right: 70px;
+        }
+        #btn-jump {
+            width: 76px;
+            height: 76px;
+            font-size: 24px;
+            border-radius: 50%;
+            bottom: 180px;
+            right: 40px;
+        }
+        #btn-dash {
+            width: 76px;
+            height: 76px;
+            font-size: 24px;
+            border-radius: 50%;
+            bottom: 40px;
+            right: 180px;
         }
 
         /* --- 和風ステージ管理UIデザイン --- */
@@ -529,7 +565,65 @@
         .petal.p7 { left: 95%; width: 11px; height: 11px; animation-duration: 7s; animation-delay: 5s; }
         .petal.p8 { left: 30%; width: 13px; height: 13px; animation-duration: 13s; animation-delay: 6s; }
 
-        /* レスポンシブ調整 */
+        /* --- タブレット（中画面タッチデバイス）向け調整 --- */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #hp-container {
+                bottom: auto;
+                top: 25px;
+                left: 25px;
+                width: 180px;
+            }
+            #wave-container {
+                bottom: auto;
+                top: 25px;
+                right: 25px;
+            }
+            .menu-btn {
+                width: 56px;
+                height: 56px;
+                font-size: 18px;
+                top: 25px;
+            }
+            #btn-shop {
+                left: 220px;
+            }
+            #btn-pause {
+                right: 180px;
+            }
+            #joystick-outer {
+                width: 130px;
+                height: 130px;
+                bottom: 50px;
+                left: 50px;
+            }
+            #joystick-knob {
+                width: 55px;
+                height: 55px;
+            }
+            #btn-shoot {
+                width: 110px;
+                height: 110px;
+                font-size: 36px;
+                bottom: 80px;
+                right: 80px;
+            }
+            #btn-jump {
+                width: 82px;
+                height: 82px;
+                font-size: 24px;
+                bottom: 200px;
+                right: 50px;
+            }
+            #btn-dash {
+                width: 82px;
+                height: 82px;
+                font-size: 24px;
+                bottom: 50px;
+                right: 200px;
+            }
+        }
+
+        /* --- スマホ・レスポンシブ調整 --- */
         @media (max-width: 768px) {
             #ui-layer {
                 padding: 15px;
@@ -564,27 +658,57 @@
             .enemy-count {
                 font-size: 0.9rem;
             }
+
+            /* スマホ向けジョイスティック */
             #joystick-outer {
-                bottom: 25px;
-                left: 25px;
-                width: 100px;
-                height: 100px;
+                bottom: 30px;
+                left: 30px;
+                width: 95px;
+                height: 95px;
             }
             #joystick-knob {
                 width: 40px;
                 height: 40px;
             }
-            #action-buttons {
-                bottom: 25px;
-                right: 25px;
-                grid-template-columns: repeat(3, 65px);
-                grid-gap: 10px;
+
+            /* スマホ向け戦闘ボタン（アークレイアウト） */
+            #btn-shoot {
+                width: 86px;
+                height: 86px;
+                font-size: 28px;
+                bottom: 50px;
+                right: 50px;
             }
-            .action-btn {
-                width: 65px;
-                height: 65px;
+            #btn-jump {
+                width: 66px;
+                height: 66px;
                 font-size: 20px;
+                bottom: 140px;
+                right: 30px;
             }
+            #btn-dash {
+                width: 66px;
+                height: 66px;
+                font-size: 20px;
+                bottom: 30px;
+                right: 140px;
+            }
+
+            /* スマホ向けメニューボタン（生命・局数表示との干渉防止） */
+            .menu-btn {
+                width: 46px;
+                height: 46px;
+                font-size: 16px;
+                top: 15px;
+                border-radius: 6px;
+            }
+            #btn-shop {
+                left: 160px;
+            }
+            #btn-pause {
+                right: 125px;
+            }
+
             #shop-menu {
                 right: 15px;
                 top: 70px;
@@ -671,22 +795,21 @@
             </p>
         </div>
         
-        <!-- バーチャルコントローラー -->
+        <!-- 新・和モダン バーチャルコントローラー -->
         <div id="touch-controls">
-            <div id="ui-layer">
-                <div id="touch-controls">
-                    <div id="joystick-outer">
-                        <div id="joystick-knob"></div>
-                    </div>
-                    <div id="action-buttons">
-                        <button id="btn-shoot" class="action-btn">撃</button>
-                        <button id="btn-jump" class="action-btn">跳</button>
-                        <button id="btn-dash" class="action-btn">走</button>
-                        <button id="btn-shop" class="action-btn">店</button>
-                        <button id="btn-pause" class="action-btn">控</button>
-                    </div>
-                </div>
+            <!-- 移動用ジョイスティック -->
+            <div id="joystick-outer">
+                <div id="joystick-knob"></div>
             </div>
+            
+            <!-- 上部メニューエリア（誤タップ防止配置） -->
+            <button id="btn-shop" class="touch-btn menu-btn">店</button>
+            <button id="btn-pause" class="touch-btn menu-btn">控</button>
+
+            <!-- 右下戦闘エリア（アークレイアウト） -->
+            <button id="btn-shoot" class="touch-btn combat-btn">撃</button>
+            <button id="btn-jump" class="touch-btn combat-btn">跳</button>
+            <button id="btn-dash" class="touch-btn combat-btn">走</button>
         </div>
 
         <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物 | Esc: 一時停止</div>
@@ -2041,7 +2164,7 @@
                 while (target && target !== document.body) {
                     if (target.id === 'joystick-outer' || 
                         target.id === 'joystick-knob' || 
-                        target.classList.contains('action-btn') || 
+                        target.classList.contains('touch-btn') || 
                         target.id === 'shop-menu' ||
                         target.id === 'pause-menu') {
                         isUI = true;
