@@ -121,7 +121,7 @@
             bottom: 40px;
             right: 40px;
             display: grid;
-            grid-template-columns: repeat(2, 80px);
+            grid-template-columns: repeat(3, 80px);
             grid-gap: 15px;
             pointer-events: auto;
         }
@@ -471,6 +471,25 @@
             box-shadow: 0 15px 30px rgba(174, 31, 35, 0.4);
         }
 
+        /* --- 新・和モダン幽玄ポーズ画面 --- */
+        #pause-menu {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle at center, rgba(26, 21, 21, 0.85) 0%, rgba(10, 8, 8, 0.95) 100%);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1500;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f0;
+            font-family: 'Yuji Syuku', 'Klee One', serif;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
         .sakura-container {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -559,7 +578,7 @@
             #action-buttons {
                 bottom: 25px;
                 right: 25px;
-                grid-template-columns: repeat(2, 65px);
+                grid-template-columns: repeat(3, 65px);
                 grid-gap: 10px;
             }
             .action-btn {
@@ -665,12 +684,13 @@
                         <button id="btn-jump" class="action-btn">跳</button>
                         <button id="btn-dash" class="action-btn">走</button>
                         <button id="btn-shop" class="action-btn">店</button>
+                        <button id="btn-pause" class="action-btn">控</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物</div>
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物 | Esc: 一時停止</div>
     </div>
 
     <!-- 1. ロード画面 -->
@@ -682,7 +702,7 @@
                 <button class="clear-btn" onclick="startWithFallback()" style="font-size: 1.2rem; padding: 12px 35px; border: 2px solid #ae1f23; background: #d4af37; color: #1a1a1a;">予備の盤上で開始</button>
                 <div style="margin-top: 25px; font-size: 0.9rem; color: #888; text-align: left; line-height: 1.8; border-top: 1px solid #333; padding-top: 15px;">
                     <strong>【読み込みが失敗する原因】</strong><br>
-                    1. <strong>CORSポリシーによるブロック（ローカル実行時のみ）</strong>: ローカルのHTMLファイルをブラウザに直接ドラッグ＆ドロップして実行している場合（アドレスバーが `file:///` から始まっている場合）、外部データ取得が強制的に遮断されます。<br>※GitHub等にアップロードした状態では、この問題は発生しません。<br><br>
+                    1. <strong>CORSポリシーによるブロック（ローカル実行時のみ）</strong>: ローカル of HTMLファイルをブラウザに直接ドラッグ＆ドロップして実行している場合（アドレスバーが `file:///` から始まっている場合）、外部データ取得が強制的に遮断されます。<br>※GitHub等にアップロードした状態では、この問題は発生しません。<br><br>
                     2. <strong>権限設定ミス</strong>: スプレッドシートの「共有」設定にて、アクセス範囲が「<strong>リンクを知っている全員（閲覧者）</strong>」になっているかご確認ください。
                 </div>
             </div>
@@ -731,6 +751,23 @@
         </div>
     </div>
 
+    <!-- 4. 新・一時停止（ポーズ）画面 -->
+    <div id="pause-menu" style="display:none;">
+        <div class="ensou-container" style="margin-bottom: 20px;">
+            <div class="ensou-circle"></div>
+            <h1 class="clear-main-title" style="font-size: 3.2rem;">一時停止</h1>
+        </div>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">一休みいたしましょう</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button class="clear-btn next-btn" onclick="resumeGame()">再開</button>
+            <button class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+        </div>
+    </div>
+
     <div id="msg-overlay"></div>
     <div id="game-over"><h1>投了</h1><button onclick="location.reload()">再戦を申し込む</button></div>
 
@@ -742,7 +779,7 @@
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isTouchDevice) {
             document.body.classList.add('touch-device');
-            document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>項目タップで購入';
+            document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
         }
 
         // --- 定数・システム変数 ---
@@ -751,6 +788,7 @@
             wave: 0, 
             score: 0, 
             isGameOver: false, 
+            isPaused: false, // ポーズ判定
             shopOpen: false, 
             enemies: [], 
             bullets: [], 
@@ -1270,7 +1308,7 @@
             let input = SPREADSHEET_ID.trim();
             let url = '';
 
-            // スプレッドシートのURLから実際のシートIDを安全に切り出す [2]
+            // スプレッドシートのURLから実際のシートIDを安全に切り出す
             let cleanedId = input;
             if (cleanedId.includes('/d/')) {
                 cleanedId = cleanedId.split('/d/')[1].split('/')[0];
@@ -1387,6 +1425,8 @@
             currentStageIndex = index;
             document.getElementById('stage-select-menu').style.display = 'none';
             document.getElementById('stage-clear-menu').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            STATE.isPaused = false;
             startStage(stages[index]);
         }
 
@@ -1430,6 +1470,7 @@
 
             STATE.isGameOver = false;
             STATE.stageActive = true;
+            STATE.isPaused = false;
             updateUI();
         }
 
@@ -1458,6 +1499,73 @@
             document.getElementById('stage-clear-menu').style.display = 'none';
             document.getElementById('stage-select-menu').style.display = 'flex';
         };
+
+        // --- ポーズ（一時停止）制御処理 ---
+        window.togglePause = () => {
+            if (!STATE.stageActive || STATE.isGameOver) return;
+            if (STATE.isPaused) {
+                window.resumeGame();
+            } else {
+                window.pauseGame();
+            }
+        };
+
+        window.pauseGame = () => {
+            if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused) return;
+            if (STATE.shopOpen) {
+                // ショップを閉じる
+                STATE.shopOpen = false;
+                document.getElementById('shop-menu').style.display = 'none';
+            }
+            STATE.isPaused = true;
+            document.getElementById('pause-menu').style.display = 'flex';
+            if (!isTouchDevice && document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            PLAYER.isShooting = false;
+            updateUI();
+        };
+
+        window.resumeGame = () => {
+            if (!STATE.stageActive || STATE.isGameOver || !STATE.isPaused) return;
+            STATE.isPaused = false;
+            document.getElementById('pause-menu').style.display = 'none';
+            if (!isTouchDevice) {
+                document.body.requestPointerLock();
+            }
+            updateUI();
+        };
+
+        window.quitStageToSelect = () => {
+            STATE.isPaused = false;
+            STATE.stageActive = false;
+            document.getElementById('pause-menu').style.display = 'none';
+
+            STATE.enemies.forEach(en => { if(en.mesh) scene.remove(en.mesh); });
+            STATE.bullets.forEach(b => { if(b.mesh) scene.remove(b.mesh); });
+            STATE.enemyBullets.forEach(eb => { if(eb.mesh) scene.remove(eb.mesh); });
+            STATE.items.forEach(it => { if(it.mesh) scene.remove(it.mesh); });
+
+            STATE.enemies = [];
+            STATE.bullets = [];
+            STATE.enemyBullets = [];
+            STATE.items = [];
+
+            if (!isTouchDevice && document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+            document.getElementById('stage-select-menu').style.display = 'flex';
+        };
+
+        // Escキー等によるポインターロック解除をポーズに同期
+        document.addEventListener('pointerlockchange', () => {
+            if (!isTouchDevice && !document.pointerLockElement) {
+                if (STATE.stageActive && !STATE.isGameOver && !STATE.shopOpen && !STATE.isPaused) {
+                    window.pauseGame();
+                }
+            }
+        });
+
 
         // --- 弾丸クラス ---
         class Projectile {
@@ -1819,7 +1927,11 @@
                 e.preventDefault();
                 toggleShop();
             }
-            if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive) {
+            if(e.code === 'Escape') {
+                e.preventDefault();
+                window.togglePause();
+            }
+            if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive && !STATE.isPaused) {
                 PLAYER.vy = JUMP_FORCE;
                 PLAYER.isGrounded = false;
             }
@@ -1853,7 +1965,7 @@
         });
 
         function toggleShop() {
-            if(!STATE.stageActive) return; 
+            if(!STATE.stageActive || STATE.isPaused) return; 
             STATE.shopOpen = !STATE.shopOpen;
             document.getElementById('shop-menu').style.display = STATE.shopOpen ? 'block' : 'none';
             if(STATE.shopOpen) {
@@ -1864,7 +1976,7 @@
 
         // --- 視点移動 ---
         window.addEventListener('mousemove', e => {
-            if (!isTouchDevice && document.pointerLockElement && STATE.stageActive) {
+            if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused) {
                 camera.rotation.y -= e.movementX * 0.0025;
                 camera.rotation.x = Math.max(-1.4, Math.min(1.4, camera.rotation.x - e.movementY * 0.0025));
             }
@@ -1883,7 +1995,7 @@
         }, { passive: true });
 
         window.addEventListener('mousedown', (e) => {
-            if (!STATE.stageActive || STATE.isGameOver) return;
+            if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused) return;
 
             if (e.button === 2) {
                 if (STATE.shopOpen) {
@@ -1909,7 +2021,7 @@
         let lastLookY = 0;
 
         window.addEventListener('touchstart', e => {
-            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 let target = touch.target;
@@ -1919,7 +2031,8 @@
                     if (target.id === 'joystick-outer' || 
                         target.id === 'joystick-knob' || 
                         target.classList.contains('action-btn') || 
-                        target.id === 'shop-menu') {
+                        target.id === 'shop-menu' ||
+                        target.id === 'pause-menu') {
                         isUI = true;
                         break;
                     }
@@ -1935,7 +2048,7 @@
         }, { passive: false });
 
         window.addEventListener('touchmove', e => {
-            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+            if (!isTouchDevice || STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const touch = e.changedTouches[i];
                 if (touch.identifier === lookTouchId) {
@@ -1974,7 +2087,7 @@
 
         if (isTouchDevice) {
             joystickOuter.addEventListener('touchstart', e => {
-                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
                 e.preventDefault();
                 const touch = e.changedTouches[0];
                 joystickTouchId = touch.identifier;
@@ -2025,10 +2138,11 @@
             const btnJump = document.getElementById('btn-jump');
             const btnDash = document.getElementById('btn-dash');
             const btnShop = document.getElementById('btn-shop');
+            const btnPause = document.getElementById('btn-pause');
 
             btnShoot.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
                 PLAYER.isShooting = true;
             }, { passive: false });
             btnShoot.addEventListener('touchend', e => {
@@ -2041,7 +2155,7 @@
 
             btnJump.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
                 if (PLAYER.isGrounded) {
                     PLAYER.vy = JUMP_FORCE;
                     PLAYER.isGrounded = false;
@@ -2050,7 +2164,7 @@
 
             btnDash.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive) return;
+                if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
                 STATE.dashActive = !STATE.dashActive;
                 if (STATE.dashActive) {
                     btnDash.classList.add('active');
@@ -2061,8 +2175,14 @@
 
             btnShop.addEventListener('touchstart', e => {
                 e.preventDefault();
-                if (STATE.isGameOver || !STATE.stageActive) return;
+                if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
                 toggleShop();
+            }, { passive: false });
+
+            btnPause.addEventListener('touchstart', e => {
+                e.preventDefault();
+                if (STATE.isGameOver || !STATE.stageActive) return;
+                window.togglePause();
             }, { passive: false });
         }
 
@@ -2075,6 +2195,7 @@
             renderer.render(scene, camera);
 
             if (!STATE.stageActive) return;
+            if (STATE.isPaused) return; // 一時停止中は更新処理をスキップ
 
             const move = new THREE.Vector3();
             if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
