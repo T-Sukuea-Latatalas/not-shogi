@@ -221,9 +221,9 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #1c1c1c 0%, #0d0d0d 100%);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: radial-gradient(circle at center, rgba(28, 28, 28, 0.45) 0%, rgba(13, 13, 13, 0.8) 100%);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
             display: flex;
             flex-direction: column;
@@ -374,9 +374,9 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #1a1515 0%, #0a0808 100%);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            background: radial-gradient(circle at center, rgba(26, 21, 21, 0.45) 0%, rgba(10, 8, 8, 0.8) 100%);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 2000;
             display: flex;
             flex-direction: column;
@@ -514,9 +514,9 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: radial-gradient(circle at center, rgba(26, 21, 21, 0.85) 0%, rgba(10, 8, 8, 0.95) 100%);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
+            background: radial-gradient(circle at center, rgba(26, 21, 21, 0.45) 0%, rgba(10, 8, 8, 0.8) 100%);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
             z-index: 1500;
             display: none;
             flex-direction: column;
@@ -929,7 +929,7 @@
         </div>
     </div>
 
-    <!-- 敗北（投了）画面 -->
+    <!-- 敗敗（投了）画面 -->
     <div id="game-over">
         <h1>投了</h1>
         <div class="clear-btn-group" style="margin-top: 40px; z-index: 1005;">
@@ -1492,6 +1492,12 @@
             STATE.isPaused = false;
             STATE.isGameOver = false;
             cleanUp3DObjects();
+
+            // 各種DOMポップアップメニューを確実に非表示にする
+            document.getElementById('stage-clear-menu').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+
             if (!isTouchDevice && document.pointerLockElement) {
                 document.exitPointerLock();
             }
@@ -1522,18 +1528,12 @@
         };
 
         window.backToPracticeSelect = () => {
-            document.getElementById('stage-clear-menu').style.display = 'none';
-            document.getElementById('pause-menu').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
             cleanUpStage();
             document.getElementById('practice-select-menu').style.display = 'flex';
             buildPracticeMenu();
         };
 
         window.backToTitle = () => {
-            document.getElementById('stage-clear-menu').style.display = 'none';
-            document.getElementById('pause-menu').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
             cleanUpStage();
             document.getElementById('title-screen').style.display = 'flex';
         };
@@ -2121,6 +2121,7 @@
             setTimeout(() => ch.classList.remove('hit-mark'), 100);
         }
 
+        // 旋回背景で向きが変わっても射撃はプレイヤー視点（カメラ前方向）を向くように維持
         function shoot() {
             const dir = new THREE.Vector3(); 
             camera.getWorldDirection(dir);
@@ -2487,6 +2488,17 @@
         function animate() {
             requestAnimationFrame(animate);
             if (STATE.isGameOver) return;
+
+            // 非プレイ中（メニュー表示時）のみ3D俯瞰旋回カメラを適用
+            if (!STATE.stageActive) {
+                const time = Date.now() * 0.00015; // 回転の速度調整
+                const radius = 65;
+                const height = 38;
+                camera.position.x = Math.cos(time) * radius;
+                camera.position.z = Math.sin(time) * radius;
+                camera.position.y = GROUND_Y + height;
+                camera.lookAt(0, GROUND_Y, 0); // 盤面中央を常に注視
+            }
 
             renderer.render(scene, camera);
 
