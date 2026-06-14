@@ -11,7 +11,10 @@
         #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
         #damage-vignette { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; box-shadow: inset 0 0 100px rgba(174, 31, 35, 0); transition: box-shadow 0.3s; }
         #damage-vignette.hit { box-shadow: inset 0 0 150px rgba(174, 31, 35, 0.8); }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; padding: 40px; box-sizing: border-box; z-index: 20; }
+        
+        /* ゲームプレイ中以外は非表示にするために初期値を display: none; に設定 */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; user-select: none; padding: 40px; box-sizing: border-box; z-index: 20; display: none; }
+        
         #hp-container { position: absolute; bottom: 50px; left: 50px; width: 350px; }
         .label { font-size: 1.2rem; color: #ae1f23; margin-bottom: 5px; letter-spacing: 0.2em; font-weight: bold; }
         #hp-frame { height: 15px; background: rgba(255, 255, 255, 0.4); position: relative; overflow: hidden; border-bottom: 2px solid #ae1f23; transform: skewX(-15deg); }
@@ -347,7 +350,7 @@
             background: linear-gradient(90deg, rgba(255,255,255,0.01) 0%, rgba(255,255,255,0.03) 50%, rgba(255,255,255,0) 100%);
             pointer-events: none;
         }
-        .stage-btn:hover {
+        .stage-btn:hover:not(:disabled) {
             transform: translateY(-3px);
             border-color: #d4af37;
             border-left-width: 8px;
@@ -364,7 +367,7 @@
             transform: skewX(-25deg);
             pointer-events: none;
         }
-        .stage-btn:hover::after {
+        .stage-btn:hover:not(:disabled)::after {
             left: 150%;
             transition: all 0.8s ease;
         }
@@ -489,7 +492,7 @@
             color: #f5f5f0;
             border: 2px solid #d4af37;
         }
-        .clear-btn.next-btn:hover {
+        .clear-btn.next-btn:hover:not(:disabled) {
             background: #d4af37;
             color: #1a1a1a;
             border-color: #f5f5f0;
@@ -501,7 +504,7 @@
             color: #e5e5e0;
             border: 2px solid #ae1f23;
         }
-        .clear-btn.back-btn:hover {
+        .clear-btn.back-btn:hover:not(:disabled) {
             background: #ae1f23;
             color: #ffffff;
             border-color: #d4af37;
@@ -1017,6 +1020,69 @@
 
         let scene, camera, renderer, sun, boardGroup;
 
+        // --- セーブ機能と進行制限関連のヘルパー ---
+        function getClearedStages() {
+            try {
+                const data = localStorage.getItem('non_shogi_progress');
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveClearedStage(stageNum) {
+            try {
+                const cleared = getClearedStages();
+                if (!cleared.includes(stageNum)) {
+                    cleared.push(stageNum);
+                    localStorage.setItem('non_shogi_progress', JSON.stringify(cleared));
+                }
+            } catch (e) {
+                console.error("セーブデータの保存に失敗しました:", e);
+            }
+        }
+
+        function getUnlockedPieces() {
+            const unlocked = new Set();
+            if (stages.length === 0) return unlocked;
+
+            const cleared = getClearedStages();
+            
+            stages.forEach((stg, index) => {
+                let isUnlocked = false;
+                if (index === 0) {
+                    isUnlocked = true;
+                } else {
+                    const prevStage = stages[index - 1];
+                    if (prevStage && cleared.includes(prevStage.stage)) {
+                        isUnlocked = true;
+                    }
+                }
+
+                if (isUnlocked) {
+                    const pieces = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+                    pieces.forEach(p => {
+                        if (stg[p] && stg[p] > 0) {
+                            unlocked.add(p);
+                        }
+                    });
+                }
+            });
+
+            return unlocked;
+        }
+
+        function filterEmptyStages(stageList) {
+            const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+            return stageList.filter(stg => {
+                let totalEnemies = 0;
+                enemyTypes.forEach(type => {
+                    totalEnemies += (stg[type] || 0);
+                });
+                return totalEnemies > 0;
+            });
+        }
+
         // --- アセットファクトリー ---
         const AssetFactory = {
             pieceGeom: null,
@@ -1491,6 +1557,9 @@
             STATE.stageActive = false;
             STATE.isPaused = false;
             STATE.isGameOver = false;
+            
+            // プレイ用UI全体を非表示化
+            document.getElementById('ui-layer').style.display = 'none';
             cleanUp3DObjects();
 
             // 各種DOMポップアップメニューを確実に非表示にする
@@ -1514,6 +1583,11 @@
         window.openPracticeMenu = () => {
             document.getElementById('title-screen').style.display = 'none';
             document.getElementById('practice-select-menu').style.display = 'flex';
+            STATE.isPractice = true;
+            // stagesがまだ読み込まれていない場合は、フォールバック用データで一時的に初期化する
+            if (stages.length === 0) {
+                stages = filterEmptyStages(JSON.parse(JSON.stringify(FALLBACK_STAGES)));
+            }
             buildPracticeMenu();
         };
 
@@ -1561,7 +1635,11 @@
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
                 const csvText = await res.text();
-                stages = parseCSV(csvText);
+                const parsed = parseCSV(csvText);
+                
+                // 敵が0体の空ステージの除外 (要件4)
+                stages = filterEmptyStages(parsed);
+                
                 if (stages.length === 0) throw new Error("Parsed empty stages");
                 console.log("スプレッドシートデータ（CSV）の解析に成功しました。", stages);
 
@@ -1582,7 +1660,8 @@
 
         // 予備データで開始するグローバルバインド関数
         window.startWithFallback = () => {
-            stages = JSON.parse(JSON.stringify(FALLBACK_STAGES));
+            // 敵が0体の空ステージの除外
+            stages = filterEmptyStages(JSON.parse(JSON.stringify(FALLBACK_STAGES)));
             buildStageSelectUI();
             document.getElementById('loading-screen').style.display = 'none';
             document.getElementById('stage-select-menu').style.display = 'flex';
@@ -1640,18 +1719,41 @@
             return parsed;
         }
 
+        // ステージ進行度制限付きUI構築 (要件2)
         function buildStageSelectUI() {
             const container = document.getElementById('stage-list');
             container.innerHTML = '';
+            
+            const cleared = getClearedStages();
+            
             stages.forEach((stg, index) => {
                 const btn = document.createElement('button');
                 btn.className = 'stage-btn';
-                btn.onclick = () => selectStage(index);
                 
+                // 進行度制限判定：最初のステージは常に解放。それ以降は、直前のステージのstage番号がクリア済みに含まれる場合のみ解放。
+                let isUnlocked = false;
+                if (index === 0) {
+                    isUnlocked = true;
+                } else {
+                    const prevStage = stages[index - 1];
+                    if (prevStage && cleared.includes(prevStage.stage)) {
+                        isUnlocked = true;
+                    }
+                }
+
                 const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
                 const waveName = kanjis[stg.stage] || stg.stage;
                 
-                btn.innerHTML = `<span>第${waveName}局：${stg.name}</span> <span style="color:#d4af37;">開始</span>`;
+                if (isUnlocked) {
+                    btn.onclick = () => selectStage(index);
+                    btn.innerHTML = `<span>第${waveName}局：${stg.name}</span> <span style="color:#d4af37;">開始</span>`;
+                } else {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.innerHTML = `<span>🔒 第${waveName}局：${stg.name}</span> <span style="color:#888;">未解放</span>`;
+                }
+                
                 container.appendChild(btn);
             });
         }
@@ -1669,16 +1771,31 @@
 
         // --- 修練メニュー生成・開始処理 ---
         const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+        
+        // クリア状況から修練可能な駒の制限 (要件3)
         function buildPracticeMenu() {
             const container = document.getElementById('practice-piece-list');
             container.innerHTML = '';
+            
+            const unlockedPieces = getUnlockedPieces();
+
             PRACTICE_PIECES.forEach(type => {
                 const btn = document.createElement('button');
                 btn.className = 'stage-btn';
-                btn.onclick = () => startPracticeStage(type);
                 
+                const isUnlocked = unlockedPieces.has(type);
                 const fullName = PIECE_NAMES[type] || type;
-                btn.innerHTML = `<span>修練：${fullName}</span> <span style="color:#d4af37;">手合わせ</span>`;
+                
+                if (isUnlocked) {
+                    btn.onclick = () => startPracticeStage(type);
+                    btn.innerHTML = `<span>修練：${fullName}</span> <span style="color:#d4af37;">手合わせ</span>`;
+                } else {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.innerHTML = `<span>🔒 修練：${fullName}</span> <span style="color:#888;">未解放</span>`;
+                }
+                
                 container.appendChild(btn);
             });
         }
@@ -1741,6 +1858,9 @@
             STATE.isGameOver = false;
             STATE.stageActive = true;
             STATE.isPaused = false;
+            
+            // プレイ中のUIを動的に表示化 (要件1)
+            document.getElementById('ui-layer').style.display = 'block';
             updateUI();
 
             if (!isTouchDevice) {
@@ -1761,9 +1881,22 @@
 
         function showStageClear() {
             STATE.stageActive = false;
+            
+            // プレイ中UIを非表示 (要件1)
+            document.getElementById('ui-layer').style.display = 'none';
+            
             if (!isTouchDevice && document.pointerLockElement) {
                 document.exitPointerLock();
             }
+            
+            // 本戦時、ステージクリア状況をlocalStorageへ追加・保存 (要件2)
+            if (!STATE.isPractice) {
+                const currentStage = stages[currentStageIndex];
+                if (currentStage && typeof currentStage.stage !== 'undefined') {
+                    saveClearedStage(currentStage.stage);
+                }
+            }
+
             document.getElementById('stage-clear-menu').style.display = 'flex';
             
             const nextBtn = document.getElementById('btn-next-stage');
@@ -1839,7 +1972,13 @@
 
         window.quitStageToSelect = () => {
             cleanUpStage();
-            document.getElementById('stage-select-menu').style.display = 'flex';
+            if (STATE.isPractice) {
+                document.getElementById('practice-select-menu').style.display = 'flex';
+                buildPracticeMenu();
+            } else {
+                document.getElementById('stage-select-menu').style.display = 'flex';
+                buildStageSelectUI();
+            }
         };
 
         // Escキー等によるポインターロック解除をポーズに同期
@@ -2138,6 +2277,10 @@
             if (PLAYER.hp <= 0) {
                 STATE.isGameOver = true;
                 STATE.stageActive = false;
+                
+                // プレイ中UIを非表示 (要件1)
+                document.getElementById('ui-layer').style.display = 'none';
+                
                 document.getElementById('game-over').style.display = 'flex';
                 
                 const goBack = document.getElementById('btn-go-back');
