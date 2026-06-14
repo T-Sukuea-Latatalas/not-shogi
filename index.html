@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>将棋モドキ</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght=600&family=Yuji Syuku:wght=400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght=600&family=Yuji+Syuku&display=swap');
         body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: 'Yuji Syuku', 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
         canvas { display: block; touch-action: none; }
         #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
@@ -216,8 +216,8 @@
             100% { opacity: 1; }
         }
 
-        /* --- 新・和モダン幽玄ステージ選択画面 --- */
-        #stage-select-menu {
+        /* --- 新・和モダン幽玄ステージ選択画面 / タイトル / 修練画面 共通 --- */
+        #title-screen, #stage-select-menu, #practice-select-menu {
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
@@ -234,6 +234,9 @@
             box-sizing: border-box;
             overflow: hidden;
         }
+        #title-screen { z-index: 2100; }
+        #practice-select-menu { z-index: 2050; }
+
         .deco-circle {
             position: absolute;
             width: 450px;
@@ -464,7 +467,7 @@
         }
         .clear-btn-group {
             display: flex;
-            gap: 30px;
+            gap: 20px;
             flex-wrap: wrap;
             justify-content: center;
             z-index: 3;
@@ -472,7 +475,7 @@
         .clear-btn {
             font-family: inherit;
             font-size: 1.25rem;
-            padding: 14px 40px;
+            padding: 14px 30px;
             cursor: pointer;
             border-radius: 3px;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -741,11 +744,11 @@
                 font-size: 1.1rem;
             }
             .clear-btn {
-                padding: 10px 25px;
+                padding: 10px 20px;
                 font-size: 1.05rem;
             }
             .clear-btn-group {
-                gap: 15px;
+                gap: 10px;
             }
             .deco-circle {
                 width: 250px;
@@ -812,20 +815,35 @@
             <button id="btn-dash" class="touch-btn combat-btn">走</button>
         </div>
 
-        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 長押し連射 | Tab: 買い物 | Esc: 一時停止</div>
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 発射 | Tab: ショップ | Esc: 一時停止</div>
+    </div>
+
+    <!-- 0. タイトル画面 -->
+    <div id="title-screen">
+        <div class="deco-circle"></div>
+        <div class="menu-inner" style="text-align: center;">
+            <div class="washitsu-header">
+                <span class="sub-title">SHOGI ACTION GAME</span>
+                <h1 class="miyabi-title" style="font-size: 4.5rem;">将棋モドキ</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+                <button class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;" onclick="startCampaign()">本戦 (盤上選択へ)</button>
+                <button class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem; border-color: #d4af37; color: #d4af37; background: rgba(20, 20, 20, 0.6);" onclick="openPracticeMenu()">修練 (一対一練習)</button>
+            </div>
+        </div>
     </div>
 
     <!-- 1. ロード画面 -->
-    <div id="loading-screen">
+    <div id="loading-screen" style="display: none;">
         <div id="loading-content" style="text-align: center; max-width: 600px; padding: 20px;">
             <h2 id="loading-title">盤上生成中...</h2>
             <p id="loading-status" style="font-size: 1.1rem; color: #aaa; margin-top: 10px; line-height: 1.6;">スプレッドシートからデータを取得しています。</p>
             <div id="loading-error-actions" style="display: none; margin-top: 30px;">
                 <button class="clear-btn" onclick="startWithFallback()" style="font-size: 1.2rem; padding: 12px 35px; border: 2px solid #ae1f23; background: #d4af37; color: #1a1a1a;">予備の盤上で開始</button>
                 <div style="margin-top: 25px; font-size: 0.9rem; color: #888; text-align: left; line-height: 1.8; border-top: 1px solid #333; padding-top: 15px;">
-                    <strong>【読み込みが失敗する原因】</strong><br>
-                    1. <strong>CORSポリシーによるブロック（ローカル実行時のみ）</strong>: ローカル of HTMLファイルをブラウザに直接ドラッグ＆ドロップして実行している場合（アドレスバーが `file:///` から始まっている場合）、外部データ取得が強制的に遮断されます。<br>※GitHub等にアップロードした状態では、この問題は発生しません。<br><br>
-                    2. <strong>権限設定ミス</strong>: スプレッドシートの「共有」設定にて、アクセス範囲が「<strong>リンクを知っている全員（閲覧者）</strong>」になっているかご確認ください。
+                    <strong>【読み込みに失敗しました】</strong><br>
+                     <strong>予備のデータで遊ぶか、サイトを更新してください。</strong>
                 </div>
             </div>
         </div>
@@ -843,6 +861,23 @@
             <div class="stage-list" id="stage-list">
                 <!-- JavaScriptから動的に生成 -->
             </div>
+            <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromSelect()">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 2.5 修練（駒選択）画面 -->
+    <div id="practice-select-menu" style="display:none;">
+        <div class="deco-circle"></div>
+        <div class="menu-inner">
+            <div class="washitsu-header">
+                <span class="sub-title">PRACTICE MODE</span>
+                <h1 class="miyabi-title">修練対戦駒選択</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="stage-list" id="practice-piece-list">
+                <!-- JavaScriptから動的に生成 -->
+            </div>
+            <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromPracticeSelect()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -869,7 +904,9 @@
         </div>
         <div class="clear-btn-group">
             <button id="btn-next-stage" class="clear-btn next-btn" onclick="nextStage()">次の局へ</button>
-            <button class="clear-btn back-btn" onclick="backToStageSelect()">盤上選択に戻る</button>
+            <button id="btn-clear-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;" onclick="backToPracticeSelect()">他の駒と修練</button>
+            <button id="btn-clear-back" class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+            <button id="btn-clear-title" class="clear-btn back-btn" onclick="backToTitle()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -886,7 +923,9 @@
         </div>
         <div class="clear-btn-group">
             <button class="clear-btn next-btn" onclick="resumeGame()">再開</button>
-            <button class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+            <button id="btn-pause-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;" onclick="backToPracticeSelect()">修練選択に戻る</button>
+            <button id="btn-pause-back" class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+            <button id="btn-pause-title" class="clear-btn back-btn" onclick="backToTitle()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -894,8 +933,10 @@
     <div id="game-over">
         <h1>投了</h1>
         <div class="clear-btn-group" style="margin-top: 40px; z-index: 1005;">
-            <button class="clear-btn next-btn" onclick="location.reload()">再戦を申し込む</button>
-            <button class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+            <button class="clear-btn next-btn" onclick="restartStage()">再戦を申し込む</button>
+            <button id="btn-go-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;" onclick="backToPracticeSelect()">修練選択に戻る</button>
+            <button id="btn-go-back" class="clear-btn back-btn" onclick="quitStageToSelect()">盤上選択に戻る</button>
+            <button id="btn-go-title" class="clear-btn back-btn" onclick="backToTitle()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -925,7 +966,9 @@
             enemyBullets: [], 
             items: [], 
             dashActive: false,
-            stageActive: false 
+            stageActive: false,
+            isPractice: false,               // 修練モード判定
+            currentPracticeStage: null       // 現在の練習ステージデータ
         };
         
         const PIECE_NAMES = {
@@ -1427,11 +1470,73 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
-            // 読み込みシーケンス開始
-            loadStages(); 
             updateUI(); 
             animate();
         }
+
+        // --- 画面クリーンアップ処理 ---
+        function cleanUp3DObjects() {
+            STATE.enemies.forEach(en => { if(en.mesh) scene.remove(en.mesh); });
+            STATE.bullets.forEach(b => { if(b.mesh) scene.remove(b.mesh); });
+            STATE.enemyBullets.forEach(eb => { if(eb.mesh) scene.remove(eb.mesh); });
+            STATE.items.forEach(it => { if(it.mesh) scene.remove(it.mesh); });
+
+            STATE.enemies = [];
+            STATE.bullets = [];
+            STATE.enemyBullets = [];
+            STATE.items = [];
+        }
+
+        function cleanUpStage() {
+            STATE.stageActive = false;
+            STATE.isPaused = false;
+            STATE.isGameOver = false;
+            cleanUp3DObjects();
+            if (!isTouchDevice && document.pointerLockElement) {
+                document.exitPointerLock();
+            }
+        }
+
+        // --- モード切替・画面遷移 ---
+        window.startCampaign = () => {
+            document.getElementById('title-screen').style.display = 'none';
+            document.getElementById('loading-screen').style.display = 'flex';
+            STATE.isPractice = false;
+            loadStages();
+        };
+
+        window.openPracticeMenu = () => {
+            document.getElementById('title-screen').style.display = 'none';
+            document.getElementById('practice-select-menu').style.display = 'flex';
+            buildPracticeMenu();
+        };
+
+        window.backToTitleFromSelect = () => {
+            document.getElementById('stage-select-menu').style.display = 'none';
+            document.getElementById('title-screen').style.display = 'flex';
+        };
+
+        window.backToTitleFromPracticeSelect = () => {
+            document.getElementById('practice-select-menu').style.display = 'none';
+            document.getElementById('title-screen').style.display = 'flex';
+        };
+
+        window.backToPracticeSelect = () => {
+            document.getElementById('stage-clear-menu').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            cleanUpStage();
+            document.getElementById('practice-select-menu').style.display = 'flex';
+            buildPracticeMenu();
+        };
+
+        window.backToTitle = () => {
+            document.getElementById('stage-clear-menu').style.display = 'none';
+            document.getElementById('pause-menu').style.display = 'none';
+            document.getElementById('game-over').style.display = 'none';
+            cleanUpStage();
+            document.getElementById('title-screen').style.display = 'flex';
+        };
 
         // --- CSVパース・ステージロード処理 ---
         async function loadStages() {
@@ -1562,17 +1667,45 @@
             startStage(stages[index]);
         }
 
-        function startStage(stageData) {
-            // シーンのクリーンアップ
-            STATE.enemies.forEach(en => { if(en.mesh) scene.remove(en.mesh); });
-            STATE.bullets.forEach(b => { if(b.mesh) scene.remove(b.mesh); });
-            STATE.enemyBullets.forEach(eb => { if(eb.mesh) scene.remove(eb.mesh); });
-            STATE.items.forEach(it => { if(it.mesh) scene.remove(it.mesh); });
+        // --- 修練メニュー生成・開始処理 ---
+        const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+        function buildPracticeMenu() {
+            const container = document.getElementById('practice-piece-list');
+            container.innerHTML = '';
+            PRACTICE_PIECES.forEach(type => {
+                const btn = document.createElement('button');
+                btn.className = 'stage-btn';
+                btn.onclick = () => startPracticeStage(type);
+                
+                const fullName = PIECE_NAMES[type] || type;
+                btn.innerHTML = `<span>修練：${fullName}</span> <span style="color:#d4af37;">手合わせ</span>`;
+                container.appendChild(btn);
+            });
+        }
 
-            STATE.enemies = [];
-            STATE.bullets = [];
-            STATE.enemyBullets = [];
-            STATE.items = [];
+        function startPracticeStage(type) {
+            document.getElementById('practice-select-menu').style.display = 'none';
+            STATE.isPractice = true;
+            
+            const fullName = PIECE_NAMES[type] || type;
+            const practiceStage = {
+                stage: 0,
+                name: `修練・${fullName}`,
+                歩: type === '歩' ? 1 : 0,
+                香: type === '香' ? 1 : 0,
+                桂: type === '桂' ? 1 : 0,
+                銀: type === '銀' ? 1 : 0,
+                金: type === '金' ? 1 : 0,
+                角: type === '角' ? 1 : 0,
+                飛: type === '飛' ? 1 : 0,
+                王: type === '王' ? 1 : 0
+            };
+            STATE.currentPracticeStage = practiceStage;
+            startStage(practiceStage);
+        }
+
+        function startStage(stageData) {
+            cleanUp3DObjects();
 
             // プレイヤー初期化
             PLAYER.hp = PLAYER.maxHp;
@@ -1584,9 +1717,14 @@
 
             // ステージ情報更新
             const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
-            const waveName = kanjis[stageData.stage] || stageData.stage;
-            document.getElementById('wave-val').innerText = waveName;
-            showMsg("第" + waveName + "局：" + stageData.name);
+            if (stageData.stage === 0) {
+                document.getElementById('wave-val').innerText = "修";
+                showMsg(stageData.name);
+            } else {
+                const waveName = kanjis[stageData.stage] || stageData.stage;
+                document.getElementById('wave-val').innerText = waveName;
+                showMsg("第" + waveName + "局：" + stageData.name);
+            }
 
             // 敵の生成
             const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
@@ -1604,7 +1742,22 @@
             STATE.stageActive = true;
             STATE.isPaused = false;
             updateUI();
+
+            if (!isTouchDevice) {
+                document.body.requestPointerLock();
+            }
         }
+
+        window.restartStage = () => {
+            document.getElementById('game-over').style.display = 'none';
+            STATE.isGameOver = false;
+            STATE.isPaused = false;
+            if (STATE.isPractice) {
+                startStage(STATE.currentPracticeStage);
+            } else {
+                startStage(stages[currentStageIndex]);
+            }
+        };
 
         function showStageClear() {
             STATE.stageActive = false;
@@ -1614,10 +1767,21 @@
             document.getElementById('stage-clear-menu').style.display = 'flex';
             
             const nextBtn = document.getElementById('btn-next-stage');
-            if (currentStageIndex + 1 < stages.length) {
-                nextBtn.style.display = 'inline-block';
+            const clearPracticeBtn = document.getElementById('btn-clear-practice');
+            const clearBackBtn = document.getElementById('btn-clear-back');
+
+            if (STATE.isPractice) {
+                nextBtn.style.display = 'none';
+                clearBackBtn.style.display = 'none';
+                clearPracticeBtn.style.display = 'inline-block';
             } else {
-                nextBtn.style.display = 'none'; 
+                clearPracticeBtn.style.display = 'none';
+                clearBackBtn.style.display = 'inline-block';
+                if (currentStageIndex + 1 < stages.length) {
+                    nextBtn.style.display = 'inline-block';
+                } else {
+                    nextBtn.style.display = 'none'; 
+                }
             }
         }
 
@@ -1625,11 +1789,6 @@
             if (currentStageIndex + 1 < stages.length) {
                 selectStage(currentStageIndex + 1);
             }
-        };
-
-        window.backToStageSelect = () => {
-            document.getElementById('stage-clear-menu').style.display = 'none';
-            document.getElementById('stage-select-menu').style.display = 'flex';
         };
 
         // --- ポーズ（一時停止）制御処理 ---
@@ -1645,7 +1804,6 @@
         window.pauseGame = () => {
             if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused) return;
             if (STATE.shopOpen) {
-                // ショップを閉じる
                 STATE.shopOpen = false;
                 document.getElementById('shop-menu').style.display = 'none';
             }
@@ -1655,6 +1813,17 @@
                 document.exitPointerLock();
             }
             PLAYER.isShooting = false;
+
+            const pauseBack = document.getElementById('btn-pause-back');
+            const pausePractice = document.getElementById('btn-pause-practice');
+            if (STATE.isPractice) {
+                pauseBack.style.display = 'none';
+                pausePractice.style.display = 'inline-block';
+            } else {
+                pauseBack.style.display = 'inline-block';
+                pausePractice.style.display = 'none';
+            }
+
             updateUI();
         };
 
@@ -1669,25 +1838,7 @@
         };
 
         window.quitStageToSelect = () => {
-            STATE.isPaused = false;
-            STATE.isGameOver = false;
-            STATE.stageActive = false;
-            document.getElementById('pause-menu').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
-
-            STATE.enemies.forEach(en => { if(en.mesh) scene.remove(en.mesh); });
-            STATE.bullets.forEach(b => { if(b.mesh) scene.remove(b.mesh); });
-            STATE.enemyBullets.forEach(eb => { if(eb.mesh) scene.remove(eb.mesh); });
-            STATE.items.forEach(it => { if(it.mesh) scene.remove(it.mesh); });
-
-            STATE.enemies = [];
-            STATE.bullets = [];
-            STATE.enemyBullets = [];
-            STATE.items = [];
-
-            if (!isTouchDevice && document.pointerLockElement) {
-                document.exitPointerLock();
-            }
+            cleanUpStage();
             document.getElementById('stage-select-menu').style.display = 'flex';
         };
 
@@ -1718,7 +1869,7 @@
             update() {
                 if (this.isHoming && this.isEnemy) {
                     const targetDir = new THREE.Vector3().subVectors(camera.position, this.mesh.position).normalize();
-                    this.velocity.grid = this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
+                    this.velocity = this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
                 }
                 this.mesh.position.add(this.velocity);
                 this.life--;
@@ -1987,6 +2138,17 @@
                 STATE.isGameOver = true;
                 STATE.stageActive = false;
                 document.getElementById('game-over').style.display = 'flex';
+                
+                const goBack = document.getElementById('btn-go-back');
+                const goPractice = document.getElementById('btn-go-practice');
+                if (STATE.isPractice) {
+                    goBack.style.display = 'none';
+                    goPractice.style.display = 'inline-block';
+                } else {
+                    goBack.style.display = 'inline-block';
+                    goPractice.style.display = 'none';
+                }
+
                 if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock();
             }
         }
