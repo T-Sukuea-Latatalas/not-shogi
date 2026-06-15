@@ -1,3 +1,5 @@
+// assets.js に以下を追加、および一部修正
+
 import * as THREE from 'three';
 import { COLORS, PIECE_NAMES } from './constants.js';
 
@@ -127,6 +129,69 @@ export const AssetFactory = {
             new THREE.MeshStandardMaterial({ map: sideTex, roughness: 0.8 })
         ];
     },
+
+    // --- チェス用のアセット生成メソッド（追加） ---
+    createChessCanvas(symbol) {
+        const canvas = document.createElement('canvas'); 
+        canvas.width = 1024; 
+        canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        
+        // 高級感のある黒漆・ダーク大理石風のベース
+        ctx.fillStyle = '#151515'; 
+        ctx.fillRect(0, 0, 1024, 1024);
+        
+        // 微細なヘアライン模様
+        ctx.strokeStyle = '#282828';
+        for(let i=0; i<35; i++) { 
+            ctx.lineWidth = Math.random() * 4 + 1.5; 
+            let x = Math.random() * 1024; 
+            ctx.beginPath(); 
+            ctx.moveTo(x, 0); 
+            ctx.lineTo(x + (Math.random() - 0.5) * 80, 1024); 
+            ctx.stroke(); 
+        }
+
+        if (symbol) { 
+            ctx.fillStyle = '#d4af37'; // シンボルは金色の装飾
+            ctx.textAlign = "center"; 
+            ctx.textBaseline = "middle"; 
+            ctx.font = "bold 550px 'Segoe UI Symbol', 'Apple Color Emoji', 'sans-serif'"; 
+            ctx.fillText(symbol, 512, 512); 
+        }
+        return new THREE.CanvasTexture(canvas);
+    },
+    getChessMaterials(type) {
+        const symbols = {
+            'ポーン': '♟', 'P': '♟',
+            'ナイト': '♞', 'N': '♞',
+            'ビショップ': '♝', 'B': '♝',
+            'ルーク': '♜', 'R': '♜',
+            'クイーン': '♛', 'Q': '♛',
+            'キング': '♚', 'K': '♚'
+        };
+        const symbol = symbols[type] || '♟';
+        const frontTex = this.createChessCanvas(symbol);
+        const sideTex = this.createChessCanvas(null);
+
+        // 低ラフネス・高メタルネスによる光沢のある金属的な反射光
+        return [
+            new THREE.MeshStandardMaterial({ 
+                map: frontTex, 
+                roughness: 0.1, 
+                metalness: 0.8, 
+                color: 0x333333,
+                emissive: new THREE.Color(0x000000) 
+            }),
+            new THREE.MeshStandardMaterial({ 
+                map: sideTex, 
+                roughness: 0.1, 
+                metalness: 0.8,
+                color: 0x333333
+            })
+        ];
+    },
+
     createMossTexture() {
         const canvas = document.createElement('canvas'); 
         canvas.width = 512; 
