@@ -1,19 +1,6 @@
 import * as THREE from 'three';
 import { COLORS, STATE, EYE_HEIGHT, GROUND_Y, BOARD_SIZE } from './constants.js';
-// 変更後の entities.js の一節（例）
-import { getChessGeometry } from './assets.js'; // getChessGeometryをインポート
-
-const chessTypes = ['ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'P', 'N', 'B', 'R', 'Q', 'K'];
-let geom;
-if (chessTypes.includes(type)) {
-    this.mats = AssetFactory.getChessMaterials(type);
-    // チェス駒専用の3D立体形状を動的生成、またはAssetFactory内部でキャッシュしたものを取得
-    geom = getChessGeometry(type); 
-} else {
-    this.mats = AssetFactory.getMaterials(type);
-    geom = AssetFactory.pieceGeom; // 将棋の五角形駒
-}
-this.mesh = new THREE.Mesh(geom, this.mats);
+import { AssetFactory, getChessGeometry } from './assets.js'; 
 
 export class Projectile {
     constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false, isStun = false) {
@@ -48,7 +35,6 @@ export class Projectile {
             const playerBody = STATE.camera.position.clone().add(new THREE.Vector3(0, -EYE_HEIGHT / 2, 0));
             const dist = this.mesh.position.distanceTo(playerBody);
             if (dist < 2.0) {
-                // 循環参照を避けるため STATE にバインドした関数を安全に実行
                 if (typeof STATE.takeDamage === 'function') {
                     STATE.takeDamage(this.isHoming ? 5 : 10);
                 }
@@ -96,13 +82,18 @@ export class Enemy {
         this.type = type;
         
         const chessTypes = ['ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'P', 'N', 'B', 'R', 'Q', 'K'];
+        let geom;
+
         if (chessTypes.includes(type)) {
             this.mats = AssetFactory.getChessMaterials(type);
+            // チェス駒専用の立体BufferGeometryを動的生成して適用
+            geom = getChessGeometry(type);
         } else {
             this.mats = AssetFactory.getMaterials(type);
+            geom = AssetFactory.pieceGeom; // 将棋の五角形駒
         }
         
-        this.mesh = new THREE.Mesh(AssetFactory.pieceGeom, this.mats);
+        this.mesh = new THREE.Mesh(geom, this.mats);
         this.mesh.castShadow = true;
         
         const angle = Math.random() * Math.PI * 2;
