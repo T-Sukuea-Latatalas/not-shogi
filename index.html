@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>非将棋</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght=600&family=Yuji+Syuku&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Klee One:wght@600&family=Yuji Syuku&display=swap');
         body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: 'Yuji Syuku', 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
         canvas { display: block; touch-action: none; }
         #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
@@ -309,7 +309,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            max-height: 50vh;
+            max-height: 42vh;
             overflow-y: auto;
             width: 100%;
             padding: 10px;
@@ -571,6 +571,73 @@
         .petal.p7 { left: 95%; width: 11px; height: 11px; animation-duration: 7s; animation-delay: 5s; }
         .petal.p8 { left: 30%; width: 13px; height: 13px; animation-duration: 13s; animation-delay: 6s; }
 
+        /* --- 選択画面共通 左右分割（解説パネル用）レイアウト --- */
+        .menu-inner.select-layout {
+            flex-direction: row;
+            max-width: 960px;
+            width: 95%;
+            gap: 40px;
+            align-items: stretch;
+            justify-content: center;
+        }
+        .menu-left {
+            flex: 1.2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 500px;
+        }
+        .info-panel {
+            flex: 0.8;
+            background: rgba(20, 20, 20, 0.8);
+            border: 2px double #ae1f23;
+            border-radius: 4px;
+            padding: 25px;
+            box-sizing: border-box;
+            color: #f5f5f0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            max-width: 360px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-family: 'Klee One', 'Yuji Syuku', serif;
+            animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(15px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .info-title {
+            font-size: 1.5rem;
+            color: #d4af37;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ae1f23;
+            padding-bottom: 10px;
+            letter-spacing: 0.1em;
+            text-align: center;
+        }
+        .info-content {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            letter-spacing: 0.05em;
+        }
+        .info-enemy-list {
+            margin-top: 15px;
+            padding-left: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .info-enemy-item {
+            background: rgba(174, 31, 35, 0.15);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 0.85rem;
+        }
+
         /* --- タブレット（中画面タッチデバイス）向け調整 --- */
         @media (min-width: 769px) and (max-width: 1024px) {
             #hp-container {
@@ -760,6 +827,37 @@
             #loading-screen h2 {
                 font-size: 2rem;
             }
+
+            /* スマホ向け解説パネル切り替え */
+            .menu-inner.select-layout {
+                flex-direction: column;
+                gap: 20px;
+                overflow-y: auto;
+                max-height: 90vh;
+                align-items: center;
+            }
+            .menu-left {
+                width: 100%;
+                max-width: 100%;
+            }
+            .info-panel {
+                width: 100%;
+                max-width: 100%;
+                margin-top: 10px;
+                padding: 15px;
+            }
+            .info-title {
+                font-size: 1.3rem;
+                margin-bottom: 10px;
+                padding-bottom: 5px;
+            }
+            .info-content {
+                font-size: 0.9rem;
+                line-height: 1.6;
+            }
+            .stage-list {
+                max-height: 25vh;
+            }
         }
     </style>
 </head>
@@ -852,35 +950,55 @@
         </div>
     </div>
 
-    <!-- 2. 新・ステージ選択画面 -->
+    <!-- 2. 新・ステージ選択画面（解説パネル付き） -->
     <div id="stage-select-menu" style="display:none;">
         <div class="deco-circle"></div>
-        <div class="menu-inner">
-            <div class="washitsu-header">
-                <span class="sub-title">SELECT STAGE</span>
-                <h1 class="miyabi-title">盤上選択</h1>
-                <div class="kazarikei"></div>
+        <div class="menu-inner select-layout">
+            <div class="menu-left">
+                <div class="washitsu-header">
+                    <span class="sub-title">SELECT STAGE</span>
+                    <h1 class="miyabi-title">盤上選択</h1>
+                    <div class="kazarikei"></div>
+                </div>
+                <div class="stage-list" id="stage-list">
+                    <!-- JavaScriptから動的に生成 -->
+                </div>
+                <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromSelect()">タイトルに戻る</button>
             </div>
-            <div class="stage-list" id="stage-list">
-                <!-- JavaScriptから動的に生成 -->
+            
+            <!-- 右側：ステージ詳細・解説パネル -->
+            <div class="menu-right info-panel" id="stage-info-panel">
+                <h3 class="info-title">局詳細</h3>
+                <div class="info-content" id="stage-info-content">
+                    盤上を選択、またはカーソルを合わせると、ここに盤の様子や詳細が表示されます。
+                </div>
             </div>
-            <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromSelect()">タイトルに戻る</button>
         </div>
     </div>
 
-    <!-- 2.5 修練（駒選択）画面 -->
+    <!-- 2.5 修練（駒選択）画面（解説パネル付き） -->
     <div id="practice-select-menu" style="display:none;">
         <div class="deco-circle"></div>
-        <div class="menu-inner">
-            <div class="washitsu-header">
-                <span class="sub-title">PRACTICE MODE</span>
-                <h1 class="miyabi-title">修練対戦駒選択</h1>
-                <div class="kazarikei"></div>
+        <div class="menu-inner select-layout">
+            <div class="menu-left">
+                <div class="washitsu-header">
+                    <span class="sub-title">PRACTICE MODE</span>
+                    <h1 class="miyabi-title">修練対戦駒選択</h1>
+                    <div class="kazarikei"></div>
+                </div>
+                <div class="stage-list" id="practice-piece-list">
+                    <!-- JavaScriptから動的に生成 -->
+                </div>
+                <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromPracticeSelect()">タイトルに戻る</button>
             </div>
-            <div class="stage-list" id="practice-piece-list">
-                <!-- JavaScriptから動的に生成 -->
+            
+            <!-- 右側：駒詳細・解説パネル -->
+            <div class="menu-right info-panel" id="practice-info-panel">
+                <h3 class="info-title">修練駒解説</h3>
+                <div class="info-content" id="practice-info-content">
+                    駒を選択、またはカーソルを合わせると、ここに修練相手の挙動や特徴が表示されます。
+                </div>
             </div>
-            <button class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;" onclick="backToTitleFromPracticeSelect()">タイトルに戻る</button>
         </div>
     </div>
 
@@ -980,6 +1098,50 @@
             '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
         };
 
+        // --- 修練（練習）駒の各解説文章・情報データ ---
+        const PRACTICE_PIECE_DESCRIPTIONS = {
+            '歩': {
+                name: '歩兵 (ふひょう)',
+                desc: '一歩ずつ着実に前進してくる基本の駒。体力・攻撃力ともに低いが、数が増えて包囲されると厄介な存在になる。距離を保ち射撃で掃討せよ。',
+                stats: '体力: 低 / 攻撃: 近接接触 / 移動速度: 中'
+            },
+            '香': {
+                name: '香車 (きょうしゃ)',
+                desc: '前方に一直線に突進してくる「槍」の性質を持つ駒。突進前は予兆として体が赤く発光する。直線上から素早くダッシュや跳躍で退避せよ。',
+                stats: '体力: 中 / 攻撃: 高速突進 / 移動速度: 高 (突進時)'
+            },
+            '桂': {
+                name: '桂馬 (けいま)',
+                desc: '障害物を飛び越え、特殊な跳躍リズムで襲う奇襲の駒。空中を飛び跳ねて接近するため照準が合わせづらい。着地の隙を狙うのが賢明。',
+                stats: '体力: 中 / 攻撃: 近接接触 / 移動速度: 高 (跳躍移動)'
+            },
+            '銀': {
+                name: '銀将 (ぎんしょう)',
+                desc: '攻守を両立させた駒。ジリジリと間合いを詰めながら、時折前方および斜めの「3方向」に弾丸を放つ。弾幕を潜り抜けつつ側面に回り込め。',
+                stats: '体力: 高 / 攻撃: 3方向扇状弾 / 移動速度: 低'
+            },
+            '金': {
+                name: '金将 (きんしょう)',
+                desc: '周囲を守護する強靭な守備の要。前進しながら広範囲に「5方向」の扇状弾を連続してばら撒く。近接は極めて危険なため、徹底した遠距離戦を。',
+                stats: '体力: 極高 / 攻撃: 5方向扇状連射 / 移動速度: 極低'
+            },
+            '角': {
+                name: '角行 (かくぎょう)',
+                desc: '斜め（X字形）に強力な弾丸を掃射しつつ、一定の距離を保持してプレイヤーを狙撃する。死角となる正面や側面に隙を見出して肉薄しよう。',
+                stats: '体力: 高 / 攻撃: 斜め4方向放射弾 / 移動速度: 中'
+            },
+            '飛': {
+                name: '飛車 (ひしゃ)',
+                desc: 'プレイヤーの頭上へ執拗に吸い付く「誘導（ホーミング）弾」を放つ高火力砲台。障害物のない盤上では非常に危険。発見次第、迅速に仕留めよ。',
+                stats: '体力: 極高 / 攻撃: 特殊誘導怪光弾 / 移動速度: 中'
+            },
+            '王': {
+                name: '玉将 (ぎょくしょう)',
+                desc: '盤上に君臨する王。圧倒的な体力を誇り、自身を中心とした「12方向」への全方位波状弾幕を繰り出す。最大強化した能力と全力の回避で立ち向かえ。',
+                stats: '体力: 超絶 / 攻撃: 12方向極限弾幕 / 移動速度: 極低'
+            }
+        };
+
         const GRAVITY = -0.015;
         const JUMP_FORCE = 0.4;
         const GROUND_Y = 5.0; 
@@ -1010,11 +1172,11 @@
 
         // 万が一のオフライン時や設定失敗時に動作するローカルの予備ステージデータ
         const FALLBACK_STAGES = [
-            { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0,角: 0, 飛: 0, 王: 0 },
-            { stage: 2, name: "香車の一閃", 歩: 3, 香: 2, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0 },
-            { stage: 3, name: "桂馬の奇襲", 歩: 4, 香: 0, 桂: 3, 銀: 1, 金: 0, 角: 0, 飛: 0, 王: 0 },
-            { stage: 4, name: "飛角の盤上", 歩: 2, 香: 1, 桂: 0, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 0 },
-            { stage: 5, name: "玉将の間", 歩: 6, 香: 2, 桂: 2, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 1 }
+            { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0,角: 0, 飛: 0, 王: 0, description: "基本となる歩兵の群れ。まずは操作と射撃に慣れるための基本の盤上。" },
+            { stage: 2, name: "香車の一閃", 歩: 3, 香: 2, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0, description: "前方に一直線に突進してくる香車が出現。直線上での戦闘は避けよ。" },
+            { stage: 3, name: "桂馬の奇襲", 歩: 4, 香: 0, 桂: 3, 銀: 1, 金: 0, 角: 0, 飛: 0, 王: 0, description: "飛び跳ねながら素早く接近する桂馬と、守りの銀将が立ち塞がる。" },
+            { stage: 4, name: "飛角の盤上", 歩: 2, 香: 1, 桂: 0, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 0, description: "遠距離から強力な弾幕を放つ飛車と角行が参戦。遮蔽を活かして立ち回れ。" },
+            { stage: 5, name: "玉将の間", 歩: 6, 香: 2, 桂: 2, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 1, description: "全ての駒を統べる玉将（王）が君臨する。最強の弾幕を掻い潜り勝利を掴め。" }
         ];
 
         let stages = [];
@@ -1653,7 +1815,8 @@
 
             // --- 日本庭園を彩る「池（水面）」の追加 ---
             const pondGroup = new THREE.Group();
-            pondGroup.position.set(-45, 0, -45);
+            // Y座標を地面の0.05から将棋盤直下の4.8付近に持ち上げることで、プレイヤーが見下ろした際に美しく映えるように調整
+            pondGroup.position.set(-45, 4.8, -45); [1]
 
             // 水面
             const waterGeom = new THREE.CircleGeometry(17, 64);
@@ -1689,7 +1852,9 @@
 
             // --- プリミティブで建てる「東屋（あずまや）」の追加 ---
             const gazebo = createGazebo();
-            gazebo.position.set(-30, 0, -45);
+            // 高さを将棋盤上面の5.0に合わせ、全体のスケールを迫力ある2倍に大きく再設定
+            gazebo.position.set(-30, 5.0, -45); [1]
+            gazebo.scale.set(2, 2, 2); [1]
             scene.add(gazebo);
 
             // --- 背が高く高密度な「竹林（竹藪）」の表現強化 ---
@@ -1700,17 +1865,17 @@
             while (bambooCountCreated < bambooCountTarget && attempts < 2000) {
                 attempts++;
                 const angle = Math.random() * Math.PI * 2;
-                // 将棋盤の枯山水エリア(半径約38ユニット以内)に侵入しない配置距離
-                const dist = 38 + Math.random() * 112; 
+                // 将棋盤の上に竹が生えるのを防ぐため、最小発生距離を48以上（盤外側）に広げて制限を厳格化
+                const dist = 48 + Math.random() * 102; [1]
                 const bx = Math.cos(angle) * dist;
                 const bz = Math.sin(angle) * dist;
                 
                 // 池領域 (x: -45, z: -45, 半径17付近。干渉を避けるため半径22以内をスキップ)
                 const distToPondSq = (bx - (-45))**2 + (bz - (-45))**2;
-                // 東屋領域 (x: -30, z: -45, 半径3.5付近。干渉を避けるため半径8以内をスキップ)
-                const distToGazeboSq = (bx - (-30))**2 + (bz - (-45))**2;
+                // 東屋領域 (x: -30, z: -45, 東屋が2倍にスケールアップされたため、衝突回避判定を半径11以内へ変更)
+                const distToGazeboSq = (bx - (-30))**2 + (bz - (-45))**2; [1]
                 
-                if (distToPondSq < 22*22 || distToGazeboSq < 8*8) {
+                if (distToPondSq < 22*22 || distToGazeboSq < 11*11) { [1]
                     continue;
                 }
 
@@ -1928,6 +2093,7 @@
             document.getElementById('stage-select-menu').style.display = 'flex';
         };
 
+        // CSVの列から description を含むデータをパースするよう拡張
         function parseCSV(text) {
             const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
             if (lines.length < 2) return [];
@@ -1969,18 +2135,22 @@
                     const val = cols[index];
                     if (header === 'stage') {
                         rowObj[header] = parseInt(val, 10);
-                    } else if (header === 'name') {
+                    } else if (header === 'name' || header === 'description') { [3]
                         rowObj[header] = val;
                     } else {
                         rowObj[header] = parseInt(val, 10) || 0;
                     }
                 });
+                // descriptionが不足している場合は補完
+                if (rowObj['description'] === undefined) {
+                    rowObj['description'] = "";
+                }
                 parsed.push(rowObj);
             }
             return parsed;
         }
 
-        // ステージ進行度制限付きUI構築: 未解放ステージのボタン自体を非表示化する
+        // 盤上選択画面の動的生成：ホバー対応拡張
         function buildStageSelectUI() {
             const container = document.getElementById('stage-list');
             container.innerHTML = '';
@@ -2009,10 +2179,56 @@
                 const waveName = kanjis[stg.stage] || stg.stage;
                 
                 btn.onclick = () => selectStage(index);
+                
+                // ボタンへホバー・フォーカス時に動的に右パネルへ局解説を描画
+                btn.onmouseenter = () => updateStageInfoPanel(stg); [3]
+                btn.onfocus = () => updateStageInfoPanel(stg); [3]
+                
                 btn.innerHTML = `<span>第${waveName}局：${stg.name}</span> <span style="color:#d4af37;">開始</span>`;
                 
                 container.appendChild(btn);
             });
+
+            // 初期状態では第1ステージの情報をデフォルト表示
+            if (stages.length > 0) {
+                updateStageInfoPanel(stages[0]);
+            }
+        }
+
+        // 選択されたステージの解説・布陣情報を動的に表示する処理
+        function updateStageInfoPanel(stg) { [3]
+            const panel = document.getElementById('stage-info-content');
+            if (!panel) return;
+            
+            const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
+            const waveName = kanjis[stg.stage] || stg.stage;
+            
+            const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+            let enemyListHTML = '';
+            enemyTypes.forEach(type => {
+                const count = stg[type] || 0;
+                if (count > 0) {
+                    const name = PIECE_NAMES[type] || type;
+                    enemyListHTML += `<li class="info-enemy-item">${name} × ${count}</li>`;
+                }
+            });
+
+            const desc = stg.description || "この盤上の詳細は謎に包まれている。";
+
+            panel.innerHTML = `
+                <div style="font-weight: bold; color: #d4af37; margin-bottom: 12px; font-size: 1.15rem; border-left: 3px solid #ae1f23; padding-left: 8px;">
+                    第${waveName}局：${stg.name}
+                </div>
+                <div style="margin-bottom: 18px; line-height: 1.7; color: #eee; font-size: 0.95rem;">
+                    ${desc}
+                </div>
+                <div style="font-weight: bold; color: #ae1f23; margin-bottom: 8px; font-size: 0.95rem;">
+                    【敵軍の布陣】
+                </div>
+                <ul class="info-enemy-list">
+                    ${enemyListHTML || '<li class="info-enemy-item">敵軍なし</li>'}
+                </ul>
+            `;
         }
 
         function selectStage(index) {
@@ -2029,7 +2245,7 @@
         // --- 修練メニュー生成・開始処理 ---
         const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
         
-        // クリア状況から修練可能な駒の制限: 未解放駒のボタン自体を非表示化する
+        // クリア状況から修練可能な駒の制限
         function buildPracticeMenu() {
             const container = document.getElementById('practice-piece-list');
             container.innerHTML = '';
@@ -2048,10 +2264,48 @@
                 const fullName = PIECE_NAMES[type] || type;
                 
                 btn.onclick = () => startPracticeStage(type);
+                
+                // ホバー・フォーカス時に修練駒の特徴をパネルへ描画
+                btn.onmouseenter = () => updatePracticeInfoPanel(type); [3]
+                btn.onfocus = () => updatePracticeInfoPanel(type); [3]
+
                 btn.innerHTML = `<span>修練：${fullName}</span> <span style="color:#d4af37;">手合わせ</span>`;
                 
                 container.appendChild(btn);
             });
+
+            // 初期状態では解放済みの最初の駒詳細を表示
+            const firstUnlocked = PRACTICE_PIECES.find(type => unlockedPieces.has(type));
+            if (firstUnlocked) {
+                updatePracticeInfoPanel(firstUnlocked);
+            }
+        }
+
+        // 選択された修練駒の情報を動的に表示する処理
+        function updatePracticeInfoPanel(type) { [3]
+            const panel = document.getElementById('practice-info-content');
+            if (!panel) return;
+            
+            const info = PRACTICE_PIECE_DESCRIPTIONS[type] || {
+                name: type,
+                desc: "詳細未詳の駒。修練を積んで特性を解き明かせ。",
+                stats: "特性: 不明"
+            };
+
+            panel.innerHTML = `
+                <div style="font-weight: bold; color: #d4af37; margin-bottom: 12px; font-size: 1.15rem; border-left: 3px solid #ae1f23; padding-left: 8px;">
+                    ${info.name}
+                </div>
+                <div style="margin-bottom: 18px; line-height: 1.7; color: #eee; font-size: 0.95rem;">
+                    ${info.desc}
+                </div>
+                <div style="font-weight: bold; color: #ae1f23; margin-bottom: 8px; font-size: 0.95rem;">
+                    【挙動・戦闘能力】
+                </div>
+                <div style="background: rgba(174, 31, 35, 0.1); border: 1px dashed rgba(212, 175, 55, 0.3); padding: 10px; border-radius: 3px; font-size: 0.85rem; color: #e5e5e0;">
+                    ${info.stats}
+                </div>
+            `;
         }
 
         function startPracticeStage(type) {
@@ -2091,10 +2345,14 @@
             if (stageData.stage === 0) {
                 document.getElementById('wave-val').innerText = "修";
                 showMsg(stageData.name);
+                // 練習（修練）モード時は所持銭UIを完全に非表示化
+                document.getElementById('score-container').style.display = 'none'; [2]
             } else {
                 const waveName = kanjis[stageData.stage] || stageData.stage;
                 document.getElementById('wave-val').innerText = waveName;
                 showMsg("第" + waveName + "局：" + stageData.name);
+                // 通常の本戦局開始時は表示
+                document.getElementById('score-container').style.display = 'block'; [2]
             }
 
             // 敵の生成
@@ -2606,13 +2864,13 @@
             PLAYER.fireRate = 50;
             PLAYER.speed = 1.2;
             STATE.score = 999999;
-            showMsg("神変不可思議（全能力極限解放）");
+            showMsg("開発者モードON");
             updateUI();
         }
 
         // --- キーボード入力 ---
         const keys = {};
-        const debugKeys = ['d', 'e', 'b', 'u', 'g'];
+        const debugKeys = ['n', 'i', 'n', 'i', 'n','i','n','i','u','m'];
         let debugIndex = 0;
 
         window.addEventListener('keydown', e => {
@@ -2996,7 +3254,10 @@
                     if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
                         flashCrosshair();
                         if (en.takeHit(PLAYER.power)) {
-                            STATE.score += (en.type === '王' ? 10000 : 200);
+                            // 修練（練習）モード中（STATE.isPractice === true）は敵を倒した時に score が増加しないように制限 [2]
+                            if (!STATE.isPractice) { [2]
+                                STATE.score += (en.type === '王' ? 10000 : 200);
+                            }
                             
                             const dropProb = en.type === '王' ? 1.0 : 0.3;
                             if (Math.random() < dropProb) {
