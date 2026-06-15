@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>非将棋</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Klee One:wght@600&family=Yuji Syuku&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Klee+One:wght@600&family=Yuji+Syuku&display=swap');
         body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: 'Yuji Syuku', 'Klee One', serif; color: #2c3e50; touch-action: none; -webkit-user-select: none; user-select: none; }
         canvas { display: block; touch-action: none; }
         #washi-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; opacity: 0.1; background: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity="0.4"/></svg>'); }
@@ -24,13 +24,97 @@
         .enemy-count { font-size: 1.2rem; color: #2c3e50; font-weight: bold; }
         #score-container { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: #f5f5f0; color: #0d0d0d; padding: 10px 40px; border-radius: 5px; box-shadow: 0 5px 0 #ccc, 0 10px 20px rgba(0,0,0,0.2); font-size: 1.5rem; font-weight: bold; border: 2px solid #d4af37; pointer-events: auto; cursor: pointer; z-index: 25; }
         
+        /* 和風武器スロットインジケーター */
+        #weapon-indicator-container {
+            position: absolute;
+            bottom: 110px;
+            left: 50px;
+            background: rgba(20, 20, 20, 0.85);
+            border: 2px double #ae1f23;
+            padding: 10px 15px;
+            border-radius: 4px;
+            color: #f5f5f0;
+            font-family: 'Klee One', 'Yuji Syuku', serif;
+            pointer-events: none;
+            width: 350px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+        .weapon-slot-title {
+            font-size: 0.85rem;
+            color: #d4af37;
+            margin-bottom: 6px;
+            letter-spacing: 0.1em;
+            font-weight: bold;
+        }
+        .weapon-slots-grid {
+            display: flex;
+            gap: 6px;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .weapon-slot {
+            padding: 3px 6px;
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            background: rgba(13, 13, 13, 0.6);
+            color: #aaa;
+            border-radius: 2px;
+            transition: all 0.2s;
+            text-align: center;
+            flex: 1;
+            min-width: 50px;
+        }
+        .weapon-slot.active {
+            border-color: #ae1f23;
+            background: #ae1f23;
+            color: #ffffff;
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(174, 31, 35, 0.6);
+        }
+
+        /* チャージ充填表示器 */
+        #charge-container {
+            display: none;
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 220px;
+            text-align: center;
+            z-index: 35;
+            pointer-events: none;
+        }
+        .charge-label {
+            font-size: 0.95rem;
+            color: #d4af37;
+            text-shadow: 1px 1px 2px black, 0 0 5px #ae1f23;
+            font-weight: bold;
+            margin-bottom: 5px;
+            letter-spacing: 0.1em;
+        }
+        .charge-frame {
+            width: 100%;
+            height: 10px;
+            background: rgba(0,0,0,0.6);
+            border: 1.5px solid #d4af37;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+        }
+        #charge-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ae1f23, #ff4d4d);
+            box-shadow: 0 0 10px #ff4d4d;
+        }
+
         /* ショップメニュー */
         #shop-menu {
             position: absolute;
             top: 25%;
             right: 20px;
             width: 280px;
-            background: rgba(245, 245, 240, 0.75);
+            background: rgba(245, 245, 240, 0.85);
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
             color: #0d0d0d;
@@ -266,7 +350,7 @@
         }
         .washitsu-header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             width: 100%;
         }
         .sub-title {
@@ -512,7 +596,42 @@
             box-shadow: 0 15px 30px rgba(174, 31, 35, 0.4);
         }
 
-        /* --- 新・和モダン幽玄ポーズ画面 --- */
+        /* 利き手切替スイッチのデザイン */
+        .hand-setting-wrap {
+            margin-top: 15px; 
+            z-index: 10; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            background: rgba(20,20,20,0.7); 
+            padding: 8px 18px; 
+            border: 1px double #ae1f23; 
+            border-radius: 4px;
+        }
+        .hand-label {
+            color: #f5f5f0; 
+            font-size: 1rem; 
+            letter-spacing: 0.1em;
+        }
+        .hand-toggle-btn {
+            background: transparent;
+            color: #888;
+            border: 1px solid #444;
+            padding: 5px 12px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+            border-radius: 2px;
+        }
+        .hand-toggle-btn.active {
+            background: #ae1f23;
+            color: #ffffff;
+            border-color: #d4af37;
+            box-shadow: 0 0 5px rgba(212,175,55,0.4);
+        }
+
+        /* --- 新・一時停止（ポーズ）画面 --- */
         #pause-menu {
             position: fixed;
             top: 0; left: 0;
@@ -646,6 +765,12 @@
                 left: 25px;
                 width: 180px;
             }
+            #weapon-indicator-container {
+                bottom: auto;
+                top: 85px;
+                left: 25px;
+                width: 180px;
+            }
             #wave-container {
                 bottom: auto;
                 top: 25px;
@@ -706,6 +831,27 @@
                 top: 15px;
                 left: 15px;
                 width: 130px;
+            }
+            #weapon-indicator-container {
+                bottom: auto;
+                top: 80px;
+                left: 15px;
+                width: 140px;
+                padding: 5px 8px;
+            }
+            .weapon-slot-title {
+                font-size: 0.75rem;
+                margin-bottom: 3px;
+            }
+            .weapon-slots-grid {
+                flex-direction: column;
+                gap: 3px;
+            }
+            .weapon-slot {
+                font-size: 0.7rem;
+                padding: 1px 3px;
+                min-width: unset;
+                text-align: left;
             }
             .label {
                 font-size: 0.9rem;
@@ -872,11 +1018,32 @@
             <div class="label">生命</div>
             <div id="hp-frame"><div id="hp-bar"></div></div>
         </div>
+
+        <!-- 武器スロットインジケーター -->
+        <div id="weapon-indicator-container">
+            <div class="weapon-slot-title">装備選択</div>
+            <div class="weapon-slots-grid">
+                <span id="weapon-slot-0" class="weapon-slot">「速射」</span>
+                <span id="weapon-slot-1" class="weapon-slot">「重撃」</span>
+                <span id="weapon-slot-2" class="weapon-slot">「狙撃」</span>
+                <span id="weapon-slot-3" class="weapon-slot">「焙烙」</span>
+                <span id="weapon-slot-4" class="weapon-slot">「店」</span>
+            </div>
+        </div>
+
         <div id="wave-container">
             <div class="enemy-count">残敵：<span id="enemy-count">0</span></div>
             <div class="wave-text">第<span id="wave-val">一</span>局</div>
         </div>
         <div id="crosshair"></div>
+
+        <!-- チャージ進行メーター -->
+        <div id="charge-container">
+            <div class="charge-label">魂気充填</div>
+            <div class="charge-frame">
+                <div id="charge-bar"></div>
+            </div>
+        </div>
         
         <!-- 改良版ショップメニュー -->
         <div id="shop-menu">
@@ -893,9 +1060,12 @@
             <div class="shop-item" id="shop-item-3" onclick="upgradeByIndex(3)">
                 <div><span class="shop-marker">　</span><span>強靭な魂 (体力)</span></div> <span id="cost-hp">600</span>
             </div>
+            <div class="shop-item" id="shop-item-4" onclick="upgradeByIndex(4)">
+                <div><span class="shop-marker">　</span><span>焙烙補充 (1個)</span></div> <span id="cost-houroku">100</span>
+            </div>
             <p id="shop-close-desc" style="font-size:11px; text-align:center; color:#444; margin-top:15px; margin-bottom:0; line-height:1.4;">
-                [Tab]: 開閉<br>
-                [Wheel]: 選択 | [右Click]: 購入
+                スロットを「店以外」に変更すると閉じます。<br>
+                [右クリック]: 選択項目を購入
             </p>
         </div>
         
@@ -906,8 +1076,8 @@
                 <div id="joystick-knob"></div>
             </div>
             
-            <!-- 上部メニューエリア（誤タップ防止配置） -->
-            <button id="btn-shop" class="touch-btn menu-btn">店</button>
+            <!-- 上部メニューエリア -->
+            <button id="btn-shop" class="touch-btn menu-btn">切</button>
             <button id="btn-pause" class="touch-btn menu-btn">控</button>
 
             <!-- 右下戦闘エリア（アークレイアウト） -->
@@ -916,7 +1086,7 @@
             <button id="btn-dash" class="touch-btn combat-btn">走</button>
         </div>
 
-        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 発射 | Tab: ショップ | Esc: 一時停止</div>
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 射撃/チャージ | 1~5 / ホイール: 武器切替 (5:店) | Esc: 一時停止</div>
     </div>
 
     <!-- 0. タイトル画面 -->
@@ -928,7 +1098,15 @@
                 <h1 class="miyabi-title" style="font-size: 4.5rem;">非将棋</h1>
                 <div class="kazarikei"></div>
             </div>
-            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+
+            <!-- 利き手設定トグルUI -->
+            <div class="hand-setting-wrap">
+                <span class="hand-label">利き手設定：</span>
+                <button id="hand-right-btn" class="hand-toggle-btn active" onclick="setDominantHand('right')">右利き</button>
+                <button id="hand-left-btn" class="hand-toggle-btn" onclick="setDominantHand('left')">左利き</button>
+            </div>
+
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 25px;">
                 <button class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;" onclick="startCampaign()">本戦 (盤上選択へ)</button>
                 <button class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem; border-color: #d4af37; color: #d4af37; background: rgba(20, 20, 20, 0.6);" onclick="openPracticeMenu()">修練 (一対一練習)</button>
             </div>
@@ -1050,7 +1228,7 @@
         </div>
     </div>
 
-    <!-- 敗敗（投了）画面 -->
+    <!-- 敗退（投了）画面 -->
     <div id="game-over">
         <h1>投了</h1>
         <div class="clear-btn-group" style="margin-top: 40px; z-index: 1005;">
@@ -1071,7 +1249,7 @@
         const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         if (isTouchDevice) {
             document.body.classList.add('touch-device');
-            document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
+            document.getElementById('shop-close-desc').innerHTML = '[切] でスロット切り替え<br>[控] で一時停止<br>項目タップで購入';
         }
 
         // --- 定数・システム変数 ---
@@ -1080,7 +1258,7 @@
             wave: 0, 
             score: 0, 
             isGameOver: false, 
-            isPaused: false, // ポーズ判定
+            isPaused: false, 
             shopOpen: false, 
             enemies: [], 
             bullets: [], 
@@ -1088,17 +1266,19 @@
             items: [], 
             dashActive: false,
             stageActive: false,
-            isPractice: false,               // 修練モード判定
-            currentPracticeStage: null,       // 現在の練習ステージデータ
-            celestialBody: null,             // 太陽・月オブジェクトの保持用
-            clouds: []                       // 雲オブジェクト群の保持用
+            isPractice: false,               
+            currentPracticeStage: null,       
+            celestialBody: null,             
+            clouds: [],
+            dominantHand: 'right', // 利き手：'right' もしくは 'left'
+            currentSlotIndex: 0,   // 5スロット制御：0(速射), 1(重撃), 2(狙撃), 3(焙烙), 4(店)
+            hourokuCount: 5        // 焙烙弾の残り個数制限
         };
         
         const PIECE_NAMES = {
             '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
         };
 
-        // --- 修練（練習）駒の各解説文章・情報データ ---
         const PRACTICE_PIECE_DESCRIPTIONS = {
             '歩': {
                 name: '歩兵 (ふひょう)',
@@ -1112,7 +1292,7 @@
             },
             '桂': {
                 name: '桂馬 (けいま)',
-                desc: '障害物を飛び越え、特殊な跳躍リズムで襲う奇襲の駒。空中を飛び跳ねて接近するため照準が合わせづらい。着地の隙を狙うのが賢明。',
+                desc: '障害物を飛び越え、特殊な跳躍リズムで襲う奇襲 of 奇襲の駒。空中を飛び跳ねて接近するため照準が合わせづらい。着地の隙を狙うのが賢明。',
                 stats: '体力: 中 / 攻撃: 近接接触 / 移動速度: 高 (跳躍移動)'
             },
             '銀': {
@@ -1157,20 +1337,21 @@
             radius: 1.5,
             vy: 0, isGrounded: true, isShooting: false 
         };
-        const UPGRADE_COSTS = { power: 500, rate: 800, speed: 400, hp: 600 };
+        const UPGRADE_COSTS = { power: 500, rate: 800, speed: 400, hp: 600, houroku: 100 };
         
-        const upgradeKeys = ['power', 'rate', 'speed', 'hp'];
+        const upgradeKeys = ['power', 'rate', 'speed', 'hp', 'houroku'];
         let selectedShopIndex = 0;
 
         const joystickVector = { x: 0, y: 0 };
 
-        // ==========================================
-        // 【設定】スプレッドシートのID、またはスプレッドシートのURL全体をここに貼り付けてください。
-        // ==========================================
+        // 狙撃のチャージ管理
+        let isCharging = false;
+        let chargeStartTime = 0;
+        const maxChargeTime = 1000; // 1秒(1000ms)でチャージMAX
+
         const SPREADSHEET_ID = 'https://docs.google.com/spreadsheets/d/1n4711vrRLoDwGGBPO81u28C2fK2PvRZUY91MIbP05As/edit?usp=sharing'; 
         const SHEET_GID = '0';
 
-        // 万が一のオフライン時や設定失敗時に動作するローカルの予備ステージデータ
         const FALLBACK_STAGES = [
             { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0,角: 0, 飛: 0, 王: 0, description: "基本となる歩兵の群れ。まずは操作と射撃に慣れるための基本の盤上。" },
             { stage: 2, name: "香車の一閃", 歩: 3, 香: 2, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0, description: "前方に一直線に突進してくる香車が出現。直線上での戦闘は避けよ。" },
@@ -1183,6 +1364,7 @@
         let currentStageIndex = 0;
 
         let scene, camera, renderer, sun, boardGroup;
+        let weaponMeshGroup; // プレイヤーの3D武器表示用グループ
 
         // --- セーブ機能と進行制限関連のヘルパー ---
         function getClearedStages() {
@@ -1442,8 +1624,8 @@
         function createBamboo() {
             const bamboo = new THREE.Group();
             const segmentHeight = 3.5;
-            const numSegments = 5 + Math.floor(Math.random() * 2); // 5〜6セグメント (高さ17.5〜21.0ユニット)
-            const baseRadius = 0.35 + Math.random() * 0.1; // 高さ調整に合わせて太めに設定
+            const numSegments = 5 + Math.floor(Math.random() * 2); 
+            const baseRadius = 0.35 + Math.random() * 0.1; 
             
             const bambooColor = new THREE.Color().setHSL(0.28 + Math.random() * 0.06, 0.5, 0.2 + Math.random() * 0.1);
             const material = new THREE.MeshStandardMaterial({
@@ -1474,7 +1656,6 @@
             return bamboo;
         }
 
-        // 飾り石
         function createRock() {
             const size = 1.8 + Math.random() * 2.2;
             const geom = new THREE.DodecahedronGeometry(size, 1);
@@ -1500,7 +1681,6 @@
             return rock;
         }
 
-        // 石灯籠
         function createLantern() {
             const lantern = new THREE.Group();
             const stoneMat = new THREE.MeshStandardMaterial({ color: 0x7a8077, roughness: 0.9 });
@@ -1550,31 +1730,26 @@
             return lantern;
         }
 
-        // 和風の東屋（あずまや）建築ヘルパー
         function createGazebo() {
             const gazebo = new THREE.Group();
             
-            // 和風調和マテリアル
-            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5f56, roughness: 0.92 }); // 基壇
-            const tatamiMat = new THREE.MeshStandardMaterial({ color: 0x9fb896, roughness: 0.95 }); // 畳
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x482a17, roughness: 0.88 }); // 梁、木部
-            const vermillionMat = new THREE.MeshStandardMaterial({ color: COLORS.vermillion, roughness: 0.7 }); // 朱色の柱
-            const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b2d2b, roughness: 0.65, metalness: 0.15 }); // 瓦風屋根
-            const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.gold, roughness: 0.3, metalness: 0.8 }); // 擬宝珠
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x5a5f56, roughness: 0.92 }); 
+            const tatamiMat = new THREE.MeshStandardMaterial({ color: 0x9fb896, roughness: 0.95 }); 
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x482a17, roughness: 0.88 }); 
+            const vermillionMat = new THREE.MeshStandardMaterial({ color: COLORS.vermillion, roughness: 0.7 }); 
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x2b2d2b, roughness: 0.65, metalness: 0.15 }); 
+            const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.gold, roughness: 0.3, metalness: 0.8 }); 
 
-            // 1. 土台 (基壇)
             const base = new THREE.Mesh(new THREE.BoxGeometry(7, 0.6, 7), stoneMat);
             base.position.y = 0.3;
             base.castShadow = true; base.receiveShadow = true;
             gazebo.add(base);
 
-            // 2. 畳の床
             const floor = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.15, 6.4), tatamiMat);
             floor.position.y = 0.6 + 0.075;
             floor.castShadow = true; floor.receiveShadow = true;
             gazebo.add(floor);
 
-            // 3. 柱 (4本)
             const columnHeight = 4.0;
             const colOffset = 2.7;
             const colGeom = new THREE.CylinderGeometry(0.12, 0.12, columnHeight, 8);
@@ -1593,11 +1768,9 @@
                 gazebo.add(col);
             });
 
-            // 4. 鴨居・梁 (4本連結)
             const beamY = 0.675 + columnHeight;
             const beamWidth = colOffset * 2;
             
-            // X方向の梁
             const beamX1 = new THREE.Mesh(new THREE.BoxGeometry(beamWidth + 0.24, 0.3, 0.18), woodMat);
             beamX1.position.set(0, beamY - 0.15, -colOffset);
             beamX1.castShadow = true; beamX1.receiveShadow = true;
@@ -1607,7 +1780,6 @@
             beamX2.position.set(0, beamY - 0.15, colOffset);
             gazebo.add(beamX2);
 
-            // Z方向の梁
             const beamZ1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.3, beamWidth + 0.24), woodMat);
             beamZ1.position.set(-colOffset, beamY - 0.15, 0);
             beamZ1.castShadow = true; beamZ1.receiveShadow = true;
@@ -1617,16 +1789,14 @@
             beamZ2.position.set(colOffset, beamY - 0.15, 0);
             gazebo.add(beamZ2);
 
-            // 5. 反りのある和風屋根 (四角錐)
             const roofHeight = 2.2;
             const roofGeom = new THREE.ConeGeometry(5.2, roofHeight, 4);
             const roof = new THREE.Mesh(roofGeom, roofMat);
             roof.position.y = beamY + roofHeight/2 - 0.1;
-            roof.rotation.y = Math.PI / 4; // 柱の方向と四角を揃える
+            roof.rotation.y = Math.PI / 4; 
             roof.castShadow = true; roof.receiveShadow = true;
             gazebo.add(roof);
 
-            // 6. 擬宝珠 (屋根のてっぺんの飾り)
             const ornamentY = beamY + roofHeight - 0.1;
             const giboshiBase = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), goldMat);
             giboshiBase.scale.set(1, 1.2, 1);
@@ -1642,18 +1812,155 @@
             return gazebo;
         }
 
+        // --- 利き手設定処理 ---
+        window.setDominantHand = (hand) => {
+            STATE.dominantHand = hand;
+            const rBtn = document.getElementById('hand-right-btn');
+            const lBtn = document.getElementById('hand-left-btn');
+            if (hand === 'right') {
+                rBtn.classList.add('active');
+                lBtn.classList.remove('active');
+            } else {
+                lBtn.classList.add('active');
+                rBtn.classList.remove('active');
+            }
+            try {
+                localStorage.setItem('non_shogi_hand', hand);
+            } catch (e) {}
+            
+            if (STATE.stageActive) {
+                updateWeaponMesh();
+            }
+        };
+
+        // --- プレイヤー武器の3Dモデル更新 ---
+        function updateWeaponMesh() {
+            if (!weaponMeshGroup) return;
+
+            // 古いアセットを破棄・削除
+            while (weaponMeshGroup.children.length > 0) {
+                const child = weaponMeshGroup.children[0];
+                weaponMeshGroup.remove(child);
+            }
+
+            const slot = STATE.currentSlotIndex;
+            if (slot === 4) return; // ショップ(店)選択時は武器を表示しない
+
+            const hand = STATE.dominantHand || 'right';
+            
+            // 利き手に応じた初期カメラ相対ローカル座標のセット
+            // 右: x: 1.0, y: -0.8, z: -2.2 / 左: x: -1.0, y: -0.8, z: -2.2
+            const posX = hand === 'right' ? 1.0 : -1.0;
+            const posY = -0.8;
+            const posZ = -2.2;
+
+            const localGroup = new THREE.Group();
+            localGroup.position.set(posX, posY, posZ);
+
+            // 武器の向きを画面内側中央へ少し向ける
+            localGroup.rotation.y = hand === 'right' ? -0.25 : 0.25;
+            localGroup.rotation.x = -0.1;
+
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x3d3d3d, roughness: 0.4, metalness: 0.85 });
+            const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.gold, roughness: 0.2, metalness: 0.9 });
+            const vermillionMat = new THREE.MeshStandardMaterial({ color: COLORS.vermillion, roughness: 0.7 });
+
+            if (slot === 0) {
+                // 1.「速射」: 細長い Cylinder ＋ 金色のバレル装飾
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.3, 8), ironMat);
+                cyl.rotation.x = Math.PI / 2;
+                localGroup.add(cyl);
+
+                const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.15, 8), goldMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.z = -0.4;
+                localGroup.add(ring);
+            } else if (slot === 1) {
+                // 2.「重撃」: 太くて短い大砲風 Cylinder ＋ 赤色のマズルガード
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.9, 12), ironMat);
+                cyl.rotation.x = Math.PI / 2;
+                localGroup.add(cyl);
+
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.18, 12), vermillionMat);
+                muzzle.rotation.x = Math.PI / 2;
+                muzzle.position.z = -0.45;
+                localGroup.add(muzzle);
+            } else if (slot === 2) {
+                // 3.「狙撃」: 照準器となる輪っか付きの極長 Cylinder
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.8, 8), ironMat);
+                cyl.rotation.x = Math.PI / 2;
+                localGroup.add(cyl);
+
+                // 照準用スコープ輪っか
+                const scope = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.02, 8, 24), goldMat);
+                scope.position.set(0, 0.22, -0.5);
+                localGroup.add(scope);
+            } else if (slot === 3) {
+                // 4.「焙烙」: 朱色の丸い爆弾風 Sphere ＋ 金色の導火線ノズル
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), vermillionMat);
+                localGroup.add(sphere);
+
+                const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25, 8), goldMat);
+                fuse.position.set(0, 0.32, 0);
+                fuse.rotation.z = 0.35;
+                localGroup.add(fuse);
+            }
+
+            weaponMeshGroup.add(localGroup);
+        }
+
+        // --- 武器スロット・ショップ切替制御 ---
+        window.selectSlot = (index) => {
+            if (!STATE.stageActive || STATE.isPaused || STATE.isGameOver) return;
+
+            // 狙撃チャージ中だった場合はキャンセルしてFOVを戻す
+            if (STATE.currentSlotIndex === 2 && isCharging) {
+                cancelCharge();
+            }
+
+            STATE.currentSlotIndex = index;
+
+            // スロットが 4 (「店」) の時に自動でショップ開閉
+            if (index === 4) {
+                STATE.shopOpen = true;
+                document.getElementById('shop-menu').style.display = 'block';
+                PLAYER.isShooting = false;
+                updateShopHighlight();
+            } else {
+                STATE.shopOpen = false;
+                document.getElementById('shop-menu').style.display = 'none';
+            }
+
+            updateWeaponMesh();
+            updateUI();
+        };
+
+        // 狙撃のチャージキャンセル
+        function cancelCharge() {
+            isCharging = false;
+            camera.fov = 75;
+            camera.updateProjectionMatrix();
+            document.getElementById('charge-container').style.display = 'none';
+        }
+
         // --- 起動シーケンス ---
         document.fonts.ready.then(() => {
+            // 保存済みの利き手をロード
+            try {
+                const savedHand = localStorage.getItem('non_shogi_hand');
+                if (savedHand === 'right' || savedHand === 'left') {
+                    setDominantHand(savedHand);
+                }
+            } catch (e) {}
             initGame();
         });
 
         function initGame() {
-            // --- 現在時刻に連動する空・フォグ・ライティングの調整 ---
             const hour = new Date().getHours();
             let skyColor, fogColor, sunColor, sunIntensity, ambientColor, ambientIntensity;
             let celestialColor, celestialPos, celestialRadius;
 
-            if (hour >= 5 && hour < 9) { // 朝 (5時〜8時59分)
+            if (hour >= 5 && hour < 9) { 
                 skyColor = 0xe5cca9;
                 fogColor = 0xe5cca9;
                 sunColor = 0xfff2e0;
@@ -1661,11 +1968,10 @@
                 ambientColor = 0xffeadd;
                 ambientIntensity = 0.7;
                 
-                // 朝焼けのオレンジの太陽（低めの位置）
                 celestialColor = 0xffaa66;
                 celestialPos = new THREE.Vector3(120, 150, 50);
                 celestialRadius = 14;
-            } else if (hour >= 9 && hour < 16) { // 昼 (9時〜15時59分)
+            } else if (hour >= 9 && hour < 16) { 
                 skyColor = 0xd2dad2;
                 fogColor = 0xd2dad2;
                 sunColor = 0xfffcf3;
@@ -1673,31 +1979,28 @@
                 ambientColor = 0xffffff;
                 ambientIntensity = 0.8;
 
-                // 輝く白黄色の太陽（高い位置）
                 celestialColor = 0xfffbe0;
                 celestialPos = new THREE.Vector3(40, 200, 40);
                 celestialRadius = 15;
-            } else if (hour >= 16 && hour < 19) { // 夕 (16時〜18時59分)
-                skyColor = 0xb84a39; // 夕焼け朱色
+            } else if (hour >= 16 && hour < 19) { 
+                skyColor = 0xb84a39; 
                 fogColor = 0xb84a39;
                 sunColor = 0xffaa44;
                 sunIntensity = 1.1;
                 ambientColor = 0xffebd5;
                 ambientIntensity = 0.6;
 
-                // 沈みかける深い茜色の太陽（低めの位置）
                 celestialColor = 0xee3311;
                 celestialPos = new THREE.Vector3(-120, 140, -30);
                 celestialRadius = 16;
-            } else { // 夜 (19時〜翌4時59分)
+            } else { 
                 skyColor = 0x0c0d1a;
                 fogColor = 0x0c0d1a;
-                sunColor = 0x90a0ff; // 冷涼な青白い月光
+                sunColor = 0x90a0ff; 
                 sunIntensity = 0.7;
-                ambientColor = 0x161a2b; // 深い青みを帯びた補助光
+                ambientColor = 0x161a2b; 
                 ambientIntensity = 0.45;
 
-                // 青白く優しい光を放つ月
                 celestialColor = 0xe0e8ff;
                 celestialPos = new THREE.Vector3(80, 180, -80);
                 celestialRadius = 11;
@@ -1706,12 +2009,16 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(skyColor);
             
-            // 霧が変な色の壁に見えないよう、減衰率を0.0035に緩和して美しく奥行きのある風景に調整
             scene.fog = new THREE.FogExp2(fogColor, 0.0035);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.rotation.order = 'YXZ';
             camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
+
+            // カメラ直下に3D武器グループを追加
+            weaponMeshGroup = new THREE.Group();
+            camera.add(weaponMeshGroup);
+            scene.add(camera);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1738,7 +2045,6 @@
             sun.shadow.bias = -0.0005;
             scene.add(sun);
 
-            // --- 太陽、または月の配置（フォグを無効にした自己発光マテリアル） ---
             const celestialGeom = new THREE.SphereGeometry(celestialRadius, 32, 32);
             const celestialMat = new THREE.MeshBasicMaterial({ color: celestialColor, fog: false });
             const celestialMesh = new THREE.Mesh(celestialGeom, celestialMat);
@@ -1746,11 +2052,10 @@
             scene.add(celestialMesh);
             STATE.celestialBody = celestialMesh;
 
-            // --- 「流れる雲」の立体オブジェクト生成 ---
-            const cloudCount = 12 + Math.floor(Math.random() * 4); // 12〜15個程度
+            const cloudCount = 12 + Math.floor(Math.random() * 4); 
             for (let i = 0; i < cloudCount; i++) {
                 const cloudGroup = new THREE.Group();
-                const partCount = 3 + Math.floor(Math.random() * 4); // 3〜6個のパーツを融合させて雲を作る
+                const partCount = 3 + Math.floor(Math.random() * 4); 
                 const cloudColor = (hour >= 19 || hour < 5) ? 0x3d435e : 0xffffff;
                 const cloudOpacity = (hour >= 19 || hour < 5) ? 0.4 : 0.55;
 
@@ -1768,7 +2073,6 @@
                         fog: false
                     });
                     const part = new THREE.Mesh(geom, mat);
-                    // グループ内で複雑な立体を作るためのオフセット
                     part.position.set(
                         (Math.random() - 0.5) * 14,
                         (Math.random() - 0.5) * 4,
@@ -1778,11 +2082,11 @@
                 }
 
                 const cx = (Math.random() - 0.5) * 600;
-                const cy = 60 + Math.random() * 20; // 地上から高さ60〜80付近
+                const cy = 60 + Math.random() * 20; 
                 const cz = (Math.random() - 0.5) * 500;
                 cloudGroup.position.set(cx, cy, cz);
                 cloudGroup.userData = {
-                    speed: 0.04 + Math.random() * 0.08 // 流れる速度を雲ごとに個別設定
+                    speed: 0.04 + Math.random() * 0.08 
                 };
 
                 scene.add(cloudGroup);
@@ -1813,12 +2117,10 @@
             sandFloor.receiveShadow = true;
             scene.add(sandFloor);
 
-            // --- 日本庭園を彩る「池（水面）」の追加 ---
+            // --- 日本庭園「池」の配置干渉修正 ---
             const pondGroup = new THREE.Group();
-            // Y座標を地面の0.05から将棋盤直下の4.8付近に持ち上げることで、プレイヤーが見下ろした際に美しく映えるように調整
-            pondGroup.position.set(-45, 4.8, -45); [1]
+            pondGroup.position.set(-55, 4.8, -55); // 盤外x/z -40〜40から遠ざけ配置 [1]
 
-            // 水面
             const waterGeom = new THREE.CircleGeometry(17, 64);
             const waterMat = new THREE.MeshStandardMaterial({
                 color: 0x152d2b,
@@ -1833,7 +2135,6 @@
             water.receiveShadow = true;
             pondGroup.add(water);
 
-            // 護岸 (小石の囲み)
             const rockCountForPond = 65;
             const pondRadius = 17.0;
             for (let i = 0; i < rockCountForPond; i++) {
@@ -1843,39 +2144,48 @@
                 const rz = Math.sin(angle) * r;
                 
                 const rock = createRock();
-                const s = 0.35 + Math.random() * 0.25; // 0.35〜0.6に小型化
+                const s = 0.35 + Math.random() * 0.25; 
                 rock.scale.multiplyScalar(s);
                 rock.position.set(rx, -0.1, rz);
                 pondGroup.add(rock);
             }
             scene.add(pondGroup);
 
-            // --- プリミティブで建てる「東屋（あずまや）」の追加 ---
+            // --- 東屋（あずまや）の配置干渉修正 ---
             const gazebo = createGazebo();
-            // 高さを将棋盤上面の5.0に合わせ、全体のスケールを迫力ある2倍に大きく再設定
-            gazebo.position.set(-30, 5.0, -45); [1]
-            gazebo.scale.set(2, 2, 2); [1]
+            gazebo.position.set(-48, 5.0, -60); // 盤外x/z -40〜40から遠ざけ配置 [1]
+            gazebo.scale.set(2, 2, 2); 
             scene.add(gazebo);
 
-            // --- 背が高く高密度な「竹林（竹藪）」の表現強化 ---
+            // --- 竹林（竹藪）の盤上生えバグ完全修正 ---
             const bambooGroup = new THREE.Group();
-            const bambooCountTarget = 430; // 400〜450本に大幅増量
+            const bambooCountTarget = 430; 
             let bambooCountCreated = 0;
             let attempts = 0;
-            while (bambooCountCreated < bambooCountTarget && attempts < 2000) {
+            while (bambooCountCreated < bambooCountTarget && attempts < 5000) {
                 attempts++;
-                const angle = Math.random() * Math.PI * 2;
-                // 将棋盤の上に竹が生えるのを防ぐため、最小発生距離を48以上（盤外側）に広げて制限を厳格化
-                const dist = 48 + Math.random() * 102; [1]
-                const bx = Math.cos(angle) * dist;
-                const bz = Math.sin(angle) * dist;
+                const bx = (Math.random() - 0.5) * 300;
+                const bz = (Math.random() - 0.5) * 300;
+                const dist = Math.sqrt(bx*bx + bz*bz);
+
+                // 将棋盤面 80x80 (x/z: -40〜40) の角周辺まで完全に排除する厳格判定 [1]
+                if (Math.abs(bx) < 46 && Math.abs(bz) < 46) { [1]
+                    continue;
+                }
                 
-                // 池領域 (x: -45, z: -45, 半径17付近。干渉を避けるため半径22以内をスキップ)
-                const distToPondSq = (bx - (-45))**2 + (bz - (-45))**2;
-                // 東屋領域 (x: -30, z: -45, 東屋が2倍にスケールアップされたため、衝突回避判定を半径11以内へ変更)
-                const distToGazeboSq = (bx - (-30))**2 + (bz - (-45))**2; [1]
+                if (dist < 48 || dist > 150) {
+                    continue;
+                }
                 
-                if (distToPondSq < 22*22 || distToGazeboSq < 11*11) { [1]
+                // 新・池座標（-55, -55）干渉半径20での完全回避 [1]
+                const distToPondSq = (bx - (-55))**2 + (bz - (-55))**2;
+                if (distToPondSq < 20 * 20) { [1]
+                    continue;
+                }
+                
+                // 新・東屋座標（-48, -60）干渉半径12での完全回避 [1]
+                const distToGazeboSq = (bx - (-48))**2 + (bz - (-60))**2;
+                if (distToGazeboSq < 12 * 12) { [1]
                     continue;
                 }
 
@@ -1984,14 +2294,13 @@
             STATE.isPaused = false;
             STATE.isGameOver = false;
             
-            // プレイ用UI全体を非表示化
             document.getElementById('ui-layer').style.display = 'none';
             cleanUp3DObjects();
 
-            // 各種DOMポップアップメニューを確実に非表示にする
             document.getElementById('stage-clear-menu').style.display = 'none';
             document.getElementById('pause-menu').style.display = 'none';
             document.getElementById('game-over').style.display = 'none';
+            cancelCharge();
 
             if (!isTouchDevice && document.pointerLockElement) {
                 document.exitPointerLock();
@@ -2010,7 +2319,6 @@
             document.getElementById('title-screen').style.display = 'none';
             document.getElementById('practice-select-menu').style.display = 'flex';
             STATE.isPractice = true;
-            // stagesがまだ読み込まれていない場合は、フォールバック用データで一時的に初期化する
             if (stages.length === 0) {
                 stages = filterEmptyStages(JSON.parse(JSON.stringify(FALLBACK_STAGES)));
             }
@@ -2043,13 +2351,11 @@
             let input = SPREADSHEET_ID.trim();
             let url = '';
 
-            // スプレッドシートのURLから実際のシートIDを安全に切り出す
             let cleanedId = input;
             if (cleanedId.includes('/d/')) {
                 cleanedId = cleanedId.split('/d/')[1].split('/')[0];
             }
 
-            // CORS問題を回避するため Google Visualization API エンドポイントを使用
             url = `https://docs.google.com/spreadsheets/d/${cleanedId}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
 
             try {
@@ -2057,26 +2363,21 @@
                     throw new Error("スプレッドシートID、またはURLが設定されていません。予備データを使用します。");
                 }
                 
-                console.log("読み込みURL (CORSバイパス版):", url);
                 const res = await fetch(url);
                 if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
                 const csvText = await res.text();
                 const parsed = parseCSV(csvText);
                 
-                // 敵が0体の空ステージの除外
                 stages = filterEmptyStages(parsed);
                 
                 if (stages.length === 0) throw new Error("Parsed empty stages");
-                console.log("スプレッドシートデータ（CSV）の解析に成功しました。", stages);
 
-                // 正常にロードされた場合は選択メニューへ遷移
                 buildStageSelectUI();
                 document.getElementById('loading-screen').style.display = 'none';
                 document.getElementById('stage-select-menu').style.display = 'flex';
             } catch (e) {
-                console.warn("スプレッドシートのロードに失敗しました。フォールバックUIを表示します:", e);
+                console.warn("スプレッドシートのロードに失敗しました:", e);
                 
-                // ロード画面をエラー表示に切り替える
                 document.getElementById('loading-title').innerText = "読み込み制限検知";
                 document.getElementById('loading-title').style.color = "#ae1f23";
                 document.getElementById('loading-status').innerHTML = `スプレッドシートの取得に失敗しました。<br><span style="color:#ae1f23; font-size:0.95rem;">理由: ${e.message}</span>`;
@@ -2084,26 +2385,21 @@
             }
         }
 
-        // 予備データで開始するグローバルバインド関数
         window.startWithFallback = () => {
-            // 敵が0体の空ステージの除外
             stages = filterEmptyStages(JSON.parse(JSON.stringify(FALLBACK_STAGES)));
             buildStageSelectUI();
             document.getElementById('loading-screen').style.display = 'none';
             document.getElementById('stage-select-menu').style.display = 'flex';
         };
 
-        // CSVの列から description を含むデータをパースするよう拡張
         function parseCSV(text) {
             const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
             if (lines.length < 2) return [];
             
-            // 区切り文字（カンマ、タブ、セミコロン）を自動判別
             let delimiter = ',';
             if (lines[0].includes('\t')) delimiter = '\t';
             else if (lines[0].includes(';')) delimiter = ';';
 
-            // ダブルクォーテーションで囲まれたカンマを無視して分割するスプリッター
             function splitCSVLine(line, delim) {
                 const result = [];
                 let current = '';
@@ -2135,13 +2431,12 @@
                     const val = cols[index];
                     if (header === 'stage') {
                         rowObj[header] = parseInt(val, 10);
-                    } else if (header === 'name' || header === 'description') { [3]
+                    } else if (header === 'name' || header === 'description') { 
                         rowObj[header] = val;
                     } else {
                         rowObj[header] = parseInt(val, 10) || 0;
                     }
                 });
-                // descriptionが不足している場合は補完
                 if (rowObj['description'] === undefined) {
                     rowObj['description'] = "";
                 }
@@ -2150,7 +2445,6 @@
             return parsed;
         }
 
-        // 盤上選択画面の動的生成：ホバー対応拡張
         function buildStageSelectUI() {
             const container = document.getElementById('stage-list');
             container.innerHTML = '';
@@ -2158,7 +2452,6 @@
             const cleared = getClearedStages();
             
             stages.forEach((stg, index) => {
-                // 進行度制限判定：最初のステージは常に解放。それ以降は、直前のステージのstage番号がクリア済みに含まれる場合のみ解放。
                 let isUnlocked = false;
                 if (index === 0) {
                     isUnlocked = true;
@@ -2169,7 +2462,6 @@
                     }
                 }
 
-                // 未解放ステージのボタンは生成・追加しない（枠自体を非表示）
                 if (!isUnlocked) return;
 
                 const btn = document.createElement('button');
@@ -2180,23 +2472,20 @@
                 
                 btn.onclick = () => selectStage(index);
                 
-                // ボタンへホバー・フォーカス時に動的に右パネルへ局解説を描画
-                btn.onmouseenter = () => updateStageInfoPanel(stg); [3]
-                btn.onfocus = () => updateStageInfoPanel(stg); [3]
+                btn.onmouseenter = () => updateStageInfoPanel(stg); 
+                btn.onfocus = () => updateStageInfoPanel(stg); 
                 
                 btn.innerHTML = `<span>第${waveName}局：${stg.name}</span> <span style="color:#d4af37;">開始</span>`;
                 
                 container.appendChild(btn);
             });
 
-            // 初期状態では第1ステージの情報をデフォルト表示
             if (stages.length > 0) {
                 updateStageInfoPanel(stages[0]);
             }
         }
 
-        // 選択されたステージの解説・布陣情報を動的に表示する処理
-        function updateStageInfoPanel(stg) { [3]
+        function updateStageInfoPanel(stg) { 
             const panel = document.getElementById('stage-info-content');
             if (!panel) return;
             
@@ -2242,10 +2531,8 @@
             startStage(stages[index]);
         }
 
-        // --- 修練メニュー生成・開始処理 ---
         const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
         
-        // クリア状況から修練可能な駒の制限
         function buildPracticeMenu() {
             const container = document.getElementById('practice-piece-list');
             container.innerHTML = '';
@@ -2255,7 +2542,6 @@
             PRACTICE_PIECES.forEach(type => {
                 const isUnlocked = unlockedPieces.has(type);
 
-                // 未解放の修練駒は生成・追加しない（枠自体を非表示）
                 if (!isUnlocked) return;
 
                 const btn = document.createElement('button');
@@ -2265,24 +2551,21 @@
                 
                 btn.onclick = () => startPracticeStage(type);
                 
-                // ホバー・フォーカス時に修練駒の特徴をパネルへ描画
-                btn.onmouseenter = () => updatePracticeInfoPanel(type); [3]
-                btn.onfocus = () => updatePracticeInfoPanel(type); [3]
+                btn.onmouseenter = () => updatePracticeInfoPanel(type); 
+                btn.onfocus = () => updatePracticeInfoPanel(type); 
 
                 btn.innerHTML = `<span>修練：${fullName}</span> <span style="color:#d4af37;">手合わせ</span>`;
                 
                 container.appendChild(btn);
             });
 
-            // 初期状態では解放済みの最初の駒詳細を表示
             const firstUnlocked = PRACTICE_PIECES.find(type => unlockedPieces.has(type));
             if (firstUnlocked) {
                 updatePracticeInfoPanel(firstUnlocked);
             }
         }
 
-        // 選択された修練駒の情報を動的に表示する処理
-        function updatePracticeInfoPanel(type) { [3]
+        function updatePracticeInfoPanel(type) { 
             const panel = document.getElementById('practice-info-content');
             if (!panel) return;
             
@@ -2340,19 +2623,21 @@
             camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
             camera.rotation.set(0, 0, 0);
 
+            // スロットと補充数を初期化
+            STATE.hourokuCount = 5;
+            cancelCharge();
+            
             // ステージ情報更新
             const kanjis = ["零","一","二","三","四","五","六","七","八","九","十"];
             if (stageData.stage === 0) {
                 document.getElementById('wave-val').innerText = "修";
                 showMsg(stageData.name);
-                // 練習（修練）モード時は所持銭UIを完全に非表示化
-                document.getElementById('score-container').style.display = 'none'; [2]
+                document.getElementById('score-container').style.display = 'none'; 
             } else {
                 const waveName = kanjis[stageData.stage] || stageData.stage;
                 document.getElementById('wave-val').innerText = waveName;
                 showMsg("第" + waveName + "局：" + stageData.name);
-                // 通常の本戦局開始時は表示
-                document.getElementById('score-container').style.display = 'block'; [2]
+                document.getElementById('score-container').style.display = 'block'; 
             }
 
             // 敵の生成
@@ -2371,7 +2656,10 @@
             STATE.stageActive = true;
             STATE.isPaused = false;
             
-            // プレイ中のUIを動的に表示化
+            // 開始時はスロット0（速射）を強制装備
+            STATE.currentSlotIndex = 0;
+            updateWeaponMesh();
+
             document.getElementById('ui-layer').style.display = 'block';
             updateUI();
 
@@ -2393,15 +2681,13 @@
 
         function showStageClear() {
             STATE.stageActive = false;
-            
-            // プレイ中UIを非表示
             document.getElementById('ui-layer').style.display = 'none';
+            cancelCharge();
             
             if (!isTouchDevice && document.pointerLockElement) {
                 document.exitPointerLock();
             }
             
-            // 本戦時、ステージクリア状況をlocalStorageへ追加・保存
             if (!STATE.isPractice) {
                 const currentStage = stages[currentStageIndex];
                 if (currentStage && typeof currentStage.stage !== 'undefined') {
@@ -2436,7 +2722,6 @@
             }
         };
 
-        // --- ポーズ（一時停止）制御処理 ---
         window.togglePause = () => {
             if (!STATE.stageActive || STATE.isGameOver) return;
             if (STATE.isPaused) {
@@ -2458,6 +2743,7 @@
                 document.exitPointerLock();
             }
             PLAYER.isShooting = false;
+            cancelCharge();
 
             const pauseBack = document.getElementById('btn-pause-back');
             const pausePractice = document.getElementById('btn-pause-practice');
@@ -2493,7 +2779,6 @@
             }
         };
 
-        // Escキー等によるポインターロック解除をポーズに同期
         document.addEventListener('pointerlockchange', () => {
             if (!isTouchDevice && !document.pointerLockElement) {
                 if (STATE.stageActive && !STATE.isGameOver && !STATE.shopOpen && !STATE.isPaused) {
@@ -2503,21 +2788,44 @@
         });
 
 
-        // --- 弾丸クラス ---
+        // --- 弾丸クラス (焙烙の放物線と爆発、各特性に対応) ---
         class Projectile {
             constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false) {
                 this.isEnemy = isEnemy;
                 this.isHoming = isHoming;
+                this.isHouroku = false; // 焙烙判定
                 this.speed = speed;
                 this.velocity = dir.clone().normalize().multiplyScalar(speed);
-                const mat = new THREE.MeshBasicMaterial({ color: isEnemy ? (isHoming ? 0x8000ff : COLORS.spirit) : COLORS.vermillion, transparent: true, opacity: 0.9 });
-                this.mesh = new THREE.Mesh(new THREE.SphereGeometry(size), mat);
+                
+                // 焙烙弾は大きめの暗い朱色、それ以外は通常の色分け
+                let col = isEnemy ? (isHoming ? 0x8000ff : COLORS.spirit) : COLORS.vermillion;
+                if (!isEnemy && size > 0.28) col = 0xb83d2a;
+
+                const mat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.95 });
+                this.mesh = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 16), mat);
                 this.mesh.position.copy(pos);
                 this.alive = true;
                 this.life = 300;
+                this.damage = PLAYER.power; // 腕力強化が基本ダメージに反映される
                 scene.add(this.mesh);
             }
             update() {
+                // 焙烙の放物線物理挙動
+                if (this.isHouroku) {
+                    this.velocity.y -= 0.015; // 焙烙重力
+                    this.mesh.position.add(this.velocity);
+                    this.life--;
+
+                    const boardLimit = BOARD_SIZE / 2;
+                    const onBoard = Math.abs(this.mesh.position.x) < boardLimit && Math.abs(this.mesh.position.z) < boardLimit;
+                    const floorY = onBoard ? GROUND_Y : 0;
+
+                    if (this.mesh.position.y <= floorY || this.life <= 0) {
+                        this.explode();
+                    }
+                    return;
+                }
+
                 if (this.isHoming && this.isEnemy) {
                     const targetDir = new THREE.Vector3().subVectors(camera.position, this.mesh.position).normalize();
                     this.velocity = this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
@@ -2535,10 +2843,45 @@
                     }
                 }
             }
+            explode() {
+                if (!this.alive) return;
+                this.alive = false;
+                scene.remove(this.mesh);
+
+                // 爆発フラッシュ演出（徐々に小さくなって消える球体）
+                const expGeom = new THREE.SphereGeometry(5.0, 16, 16);
+                const expMat = new THREE.MeshBasicMaterial({ color: 0xff4d00, transparent: true, opacity: 0.85 });
+                const expMesh = new THREE.Mesh(expGeom, expMat);
+                expMesh.position.copy(this.mesh.position);
+                scene.add(expMesh);
+
+                let scale = 1.0;
+                const shrink = () => {
+                    scale -= 0.07;
+                    if (scale <= 0) {
+                        scene.remove(expMesh);
+                    } else {
+                        expMesh.scale.set(scale, scale, scale);
+                        expMesh.material.opacity = scale * 0.85;
+                        requestAnimationFrame(shrink);
+                    }
+                };
+                shrink();
+
+                // 範囲攻撃ダメージ判定
+                STATE.enemies.forEach(en => {
+                    const dist = en.mesh.position.distanceTo(this.mesh.position);
+                    if (dist < 7.0) { // 爆破ダメージ判定半径
+                        flashCrosshair();
+                        en.takeHit(this.damage); // 焙烙ダメージの適用
+                    }
+                });
+                updateUI();
+            }
             destroy() { this.alive = false; scene.remove(this.mesh); }
         }
 
-        // --- 回刻アイテムクラス ---
+        // --- 回復アイテムクラス ---
         class Item {
             constructor(pos) {
                 this.mesh = new THREE.Mesh(
@@ -2772,12 +3115,79 @@
             setTimeout(() => ch.classList.remove('hit-mark'), 100);
         }
 
-        // 旋回背景で向きが変わっても射撃はプレイヤー視点（カメラ前方向）を向くように維持
+        // 4種類の特性の異なる武器 射出処理
         function shoot() {
+            const slot = STATE.currentSlotIndex;
+            if (slot === 4) return; // スロット4「店」では射撃不可
+
             const dir = new THREE.Vector3(); 
             camera.getWorldDirection(dir);
-            STATE.bullets.push(new Projectile(camera.position.clone().add(new THREE.Vector3(0,-0.5,0)), dir, false, 3.0, 0.25));
-            PLAYER.lastShot = Date.now();
+            const origin = camera.position.clone().add(new THREE.Vector3(0, -0.5, 0));
+
+            if (slot === 0) {
+                // 1.「速射」: ダメージ1、連射間隔100ms、短射程（寿命25フレーム）
+                const proj = new Projectile(origin, dir, false, 3.2, 0.15);
+                proj.damage = 1;
+                proj.life = 25; 
+                STATE.bullets.push(proj);
+                PLAYER.lastShot = Date.now();
+            } else if (slot === 1) {
+                // 2.「重撃」: ダメージ15、連射間隔1200ms、弾速が遅い
+                const proj = new Projectile(origin, dir, false, 1.3, 0.45);
+                proj.damage = 15;
+                STATE.bullets.push(proj);
+                PLAYER.lastShot = Date.now();
+            } else if (slot === 2) {
+                // 3.「狙撃」: 通常射出時は即撃ちせず、チャージ開始のフラグのみを立てる
+                if (!isCharging) {
+                    isCharging = true;
+                    chargeStartTime = Date.now();
+                }
+            } else if (slot === 3) {
+                // 4.「焙烙」: 投げると放物線を描き着弾で範囲爆破、個数制限あり
+                if (STATE.hourokuCount <= 0) {
+                    showMsg("焙烙弾切れ");
+                    return;
+                }
+                STATE.hourokuCount--;
+                updateUI();
+
+                const proj = new Projectile(origin, dir, false, 1.1, 0.3);
+                proj.isHouroku = true;
+                proj.life = 120; // 盤外落下時等のための最大安全ライフ
+                proj.damage = 20; // 焙烙弾の威力
+
+                // 放物線用に上向きの初速を補正
+                proj.velocity.y += 0.22;
+
+                STATE.bullets.push(proj);
+                PLAYER.lastShot = Date.now();
+                PLAYER.isShooting = false; // ボタン押しっぱなしによる誤連投を防止
+            }
+        }
+
+        // 狙撃（チャージ）の完了による射撃
+        function releaseSniper() {
+            if (!isCharging) return;
+            const elapsed = Date.now() - chargeStartTime;
+            const percent = Math.min(1.0, elapsed / maxChargeTime);
+
+            // 0.1秒以上のチャージがある場合のみ発射（誤クリック誤動作防止）
+            if (percent > 0.1) {
+                const dmg = 5 + Math.floor(25 * percent); // チャージ率に応じ最大30ダメージ
+                const speed = 4.8; // チャージ連動の超高速弾
+
+                const dir = new THREE.Vector3();
+                camera.getWorldDirection(dir);
+                const origin = camera.position.clone().add(new THREE.Vector3(0, -0.5, 0));
+
+                const proj = new Projectile(origin, dir, false, speed, 0.12);
+                proj.damage = dmg;
+                STATE.bullets.push(proj);
+                PLAYER.lastShot = Date.now();
+            }
+
+            cancelCharge();
         }
 
         function takeDamage(amt) {
@@ -2790,8 +3200,8 @@
                 STATE.isGameOver = true;
                 STATE.stageActive = false;
                 
-                // プレイ中UIを非表示
                 document.getElementById('ui-layer').style.display = 'none';
+                cancelCharge();
                 
                 document.getElementById('game-over').style.display = 'flex';
                 
@@ -2810,13 +3220,21 @@
         }
 
         window.upgrade = (type) => {
-            if (STATE.score < UPGRADE_COSTS[type]) return;
-            STATE.score -= UPGRADE_COSTS[type];
-            if (type === 'power') PLAYER.power += 1;
-            if (type === 'rate') PLAYER.fireRate = Math.max(60, PLAYER.fireRate - 40);
-            if (type === 'speed') PLAYER.speed += 0.06;
-            if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
-            UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
+            const cost = UPGRADE_COSTS[type];
+            if (STATE.score < cost) return;
+            
+            if (type === 'houroku') {
+                // 焙烙弾補充：一律100銭で購入可能（コスト上昇なし）
+                STATE.hourokuCount++;
+                STATE.score -= cost;
+            } else {
+                STATE.score -= cost;
+                if (type === 'power') PLAYER.power += 1;
+                if (type === 'rate') PLAYER.fireRate = Math.max(60, PLAYER.fireRate - 40);
+                if (type === 'speed') PLAYER.speed += 0.06;
+                if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
+                UPGRADE_COSTS[type] = Math.floor(cost * 1.5);
+            }
             updateUI();
         };
 
@@ -2828,7 +3246,7 @@
         };
 
         function updateShopHighlight() {
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 5; i++) {
                 const itemEl = document.getElementById(`shop-item-${i}`);
                 if (!itemEl) continue;
                 const markerEl = itemEl.querySelector('.shop-marker');
@@ -2848,6 +3266,23 @@
             document.getElementById('enemy-count').innerText = STATE.enemies.length;
             for(let k in UPGRADE_COSTS) document.getElementById('cost-'+k).innerText = UPGRADE_COSTS[k];
             updateShopHighlight();
+
+            // 武器インジケーター表示の同期
+            for (let i = 0; i < 5; i++) {
+                const el = document.getElementById(`weapon-slot-${i}`);
+                if (!el) continue;
+                if (i === STATE.currentSlotIndex) {
+                    el.classList.add('active');
+                    if (i === 3) {
+                        el.innerText = `「焙烙 (${STATE.hourokuCount})」`;
+                    }
+                } else {
+                    el.classList.remove('active');
+                    if (i === 3) {
+                        el.innerText = `「焙烙 (${STATE.hourokuCount})」`;
+                    }
+                }
+            }
         }
 
         function showMsg(txt) {
@@ -2864,21 +3299,18 @@
             PLAYER.fireRate = 50;
             PLAYER.speed = 1.2;
             STATE.score = 999999;
+            STATE.hourokuCount = 999;
             showMsg("開発者モードON");
             updateUI();
         }
 
         // --- キーボード入力 ---
         const keys = {};
-        const debugKeys = ['n', 'i', 'n', 'i', 'n','i','n','i','u','m'];
+        const debugKeys = ['1','1','5','4','1','4'];
         let debugIndex = 0;
 
         window.addEventListener('keydown', e => {
             keys[e.code] = true;
-            if(e.code === 'Tab') {
-                e.preventDefault();
-                toggleShop();
-            }
             if(e.code === 'Escape') {
                 e.preventDefault();
                 window.togglePause();
@@ -2887,6 +3319,13 @@
                 PLAYER.vy = JUMP_FORCE;
                 PLAYER.isGrounded = false;
             }
+
+            // 数字キーでの武器スロットダイレクト変更
+            if (e.code === 'Digit1') selectSlot(0);
+            if (e.code === 'Digit2') selectSlot(1);
+            if (e.code === 'Digit3') selectSlot(2);
+            if (e.code === 'Digit4') selectSlot(3);
+            if (e.code === 'Digit5') selectSlot(4);
 
             const k = e.key.toLowerCase();
             if (k === debugKeys[debugIndex]) {
@@ -2916,16 +3355,6 @@
             }
         });
 
-        function toggleShop() {
-            if(!STATE.stageActive || STATE.isPaused) return; 
-            STATE.shopOpen = !STATE.shopOpen;
-            document.getElementById('shop-menu').style.display = STATE.shopOpen ? 'block' : 'none';
-            if(STATE.shopOpen) {
-                PLAYER.isShooting = false;
-                updateShopHighlight();
-            }
-        }
-
         // --- 視点移動 ---
         window.addEventListener('mousemove', e => {
             if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused) {
@@ -2936,14 +3365,28 @@
 
         window.addEventListener('contextmenu', e => e.preventDefault());
 
+        // スクロール処理の統合 (ショップが店スロットのみ作動することに起因するスプリット処理)
         window.addEventListener('wheel', e => {
-            if (!STATE.shopOpen) return;
-            if (e.deltaY > 0) {
-                selectedShopIndex = (selectedShopIndex + 1) % 4;
-            } else if (e.deltaY < 0) {
-                selectedShopIndex = (selectedShopIndex - 1 + 4) % 4;
+            if (!STATE.stageActive || STATE.isPaused || STATE.isGameOver) return;
+
+            if (STATE.currentSlotIndex === 4 && STATE.shopOpen) {
+                // ショップメニューの選択肢切り替え (焙烙補充追加で最大5項目)
+                if (e.deltaY > 0) {
+                    selectedShopIndex = (selectedShopIndex + 1) % 5;
+                } else if (e.deltaY < 0) {
+                    selectedShopIndex = (selectedShopIndex - 1 + 5) % 5;
+                }
+                updateShopHighlight();
+            } else {
+                // 武器スロットホイール切り替え
+                let nextSlot = STATE.currentSlotIndex;
+                if (e.deltaY > 0) {
+                    nextSlot = (nextSlot + 1) % 5;
+                } else if (e.deltaY < 0) {
+                    nextSlot = (nextSlot - 1 + 5) % 5;
+                }
+                selectSlot(nextSlot);
             }
-            updateShopHighlight();
         }, { passive: true });
 
         window.addEventListener('mousedown', (e) => {
@@ -2963,7 +3406,13 @@
 
         window.addEventListener('mouseup', (e) => {
             if (isTouchDevice) return;
-            if (e.button === 0) PLAYER.isShooting = false;
+            if (e.button === 0) {
+                PLAYER.isShooting = false;
+                // チャージ中に左クリックボタンを離した際の狙撃射出処理
+                if (STATE.currentSlotIndex === 2 && isCharging) {
+                    releaseSniper();
+                }
+            }
         });
 
 
@@ -3100,9 +3549,16 @@
             btnShoot.addEventListener('touchend', e => {
                 e.preventDefault();
                 PLAYER.isShooting = false;
+                // スマホタッチ撃ボタンを離した際の狙撃チャージ射出判定
+                if (STATE.currentSlotIndex === 2 && isCharging) {
+                    releaseSniper();
+                }
             }, { passive: false });
             btnShoot.addEventListener('touchcancel', e => {
                 PLAYER.isShooting = false;
+                if (STATE.currentSlotIndex === 2 && isCharging) {
+                    cancelCharge();
+                }
             });
 
             btnJump.addEventListener('touchstart', e => {
@@ -3125,10 +3581,12 @@
                 }
             }, { passive: false });
 
+            // スマホ向けの「切」ボタンによる武器・ショップスロット循環切替
             btnShop.addEventListener('touchstart', e => {
                 e.preventDefault();
                 if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
-                toggleShop();
+                const next = (STATE.currentSlotIndex + 1) % 5;
+                selectSlot(next);
             }, { passive: false });
 
             btnPause.addEventListener('touchstart', e => {
@@ -3144,11 +3602,9 @@
             requestAnimationFrame(animate);
             if (STATE.isGameOver) return;
 
-            // 「ゆっくり流れる雲」のループアニメーション（一時停止中やメニュー画面でも美しく描画され続けます）
             if (STATE.clouds) {
                 STATE.clouds.forEach(cloud => {
                     cloud.position.x += cloud.userData.speed;
-                    // 限界距離に達したら逆方向の端へ戻し、適度に高さを再設定
                     if (cloud.position.x > 320) {
                         cloud.position.x = -320;
                         cloud.position.z = (Math.random() - 0.5) * 500;
@@ -3157,21 +3613,32 @@
                 });
             }
 
-            // 非プレイ中（メニュー表示時）のみ3D俯瞰旋回カメラを適用
             if (!STATE.stageActive) {
-                const time = Date.now() * 0.00015; // 回転の速度調整
+                const time = Date.now() * 0.00015; 
                 const radius = 65;
                 const height = 38;
                 camera.position.x = Math.cos(time) * radius;
                 camera.position.z = Math.sin(time) * radius;
                 camera.position.y = GROUND_Y + height;
-                camera.lookAt(0, GROUND_Y, 0); // 盤面中央を常に注視
+                camera.lookAt(0, GROUND_Y, 0); 
             }
 
             renderer.render(scene, camera);
 
             if (!STATE.stageActive) return;
-            if (STATE.isPaused) return; // 一時停止中はプレイヤーの行動などの更新処理をスキップ
+            if (STATE.isPaused) return; 
+
+            // 狙撃チャージ時のFOV(ズーム)とチャージメーターUIの動的更新
+            if (isCharging && STATE.currentSlotIndex === 2) {
+                const elapsed = Date.now() - chargeStartTime;
+                const percent = Math.min(1.0, elapsed / maxChargeTime);
+                
+                document.getElementById('charge-container').style.display = 'block';
+                document.getElementById('charge-bar').style.width = (percent * 100) + '%';
+                
+                camera.fov = 75 - 35 * percent; // 最大までズームした時に視野角(FOV)を35に
+                camera.updateProjectionMatrix();
+            }
 
             const move = new THREE.Vector3();
             if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
@@ -3206,8 +3673,19 @@
                 PLAYER.isGrounded = true;
             }
 
+            // スロット別の連続射撃判定
             if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
-                if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) shoot();
+                const now = Date.now();
+                const slot = STATE.currentSlotIndex;
+                if (slot === 0 && now - PLAYER.lastShot > 100) { 
+                    shoot(); // 1.速射 (100ms)
+                } else if (slot === 1 && now - PLAYER.lastShot > 1200) { 
+                    shoot(); // 2.重撃 (1200ms)
+                } else if (slot === 2 && now - PLAYER.lastShot > 500) { 
+                    shoot(); // 3.狙撃チャージ開始 (最低連射間隔500ms)
+                } else if (slot === 3 && now - PLAYER.lastShot > 1000) { 
+                    shoot(); // 4.焙烙射出 (1000ms)
+                }
             }
 
             for (let i = STATE.bullets.length - 1; i >= 0; i--) {
@@ -3243,31 +3721,38 @@
                 const en = STATE.enemies[i];
                 en.update(camera.position, STATE.enemies);
                 
+                // en.takeHit()や焙烙の爆風ダメージで体力が尽きた敵を安全に一括スイープ処理
+                if (en.hp <= 0) {
+                    if (!STATE.isPractice) {
+                        STATE.score += (en.type === '王' ? 10000 : 200);
+                    }
+                    
+                    const dropProb = en.type === '王' ? 1.0 : 0.3;
+                    if (Math.random() < dropProb) {
+                        STATE.items.push(new Item(en.mesh.position));
+                    }
+
+                    scene.remove(en.mesh);
+                    STATE.enemies.splice(i, 1);
+                    updateUI();
+                    continue;
+                }
+
+                // 射出された通常の弾丸との衝突判定
                 for (let j = STATE.bullets.length - 1; j >= 0; j--) {
                     const b = STATE.bullets[j];
                     if (!b.alive) continue;
                     
+                    // 焙烙弾は接触ではなく着地で爆発するため判定をスキップ
+                    if (b.isHouroku) continue;
+
                     const dx = b.mesh.position.x - en.mesh.position.x;
                     const dz = b.mesh.position.z - en.mesh.position.z;
                     const dy = b.mesh.position.y - (en.mesh.position.y + 1.2);
 
                     if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
                         flashCrosshair();
-                        if (en.takeHit(PLAYER.power)) {
-                            // 修練（練習）モード中（STATE.isPractice === true）は敵を倒した時に score が増加しないように制限 [2]
-                            if (!STATE.isPractice) { [2]
-                                STATE.score += (en.type === '王' ? 10000 : 200);
-                            }
-                            
-                            const dropProb = en.type === '王' ? 1.0 : 0.3;
-                            if (Math.random() < dropProb) {
-                                STATE.items.push(new Item(en.mesh.position));
-                            }
-
-                            scene.remove(en.mesh);
-                            STATE.enemies.splice(i, 1);
-                            updateUI();
-                        }
+                        en.takeHit(b.damage); 
                         b.destroy();
                         STATE.bullets.splice(j, 1);
                         break;
