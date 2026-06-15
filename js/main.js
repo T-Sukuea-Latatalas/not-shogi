@@ -1,5 +1,3 @@
-// text/javascript (main.js) に以下を追加、および一部修正
-
 import * as THREE from 'three';
 import { 
     COLORS, STATE, PIECE_NAMES, GRAVITY, JUMP_FORCE, GROUND_Y, EYE_HEIGHT, 
@@ -14,10 +12,8 @@ const keys = {};
 const debugKeys = ['d', 'e', 'b', 'u', 'g'];
 let debugIndex = 0;
 
-// 修練メニュー用にチェス駒を拡張登録
 const ALL_PRACTICE_PIECES = [...PRACTICE_PIECES, 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
 
-// --- チェス駒を含めたフォールバックステージの再構築 ---
 const EXTENDED_FALLBACK_STAGES = [
     { stage: 1, name: "第1局", 歩: 3 },
     { stage: 2, name: "第2局", 歩: 5, 香: 1 },
@@ -29,7 +25,6 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 8, name: "第8局", 歩: 10, 香: 3, 桂: 3, 銀: 3, 金: 3, 角: 2, 飛: 1 },
     { stage: 9, name: "第9局", 歩: 8, 香: 4, 桂: 4, 銀: 4, 金: 4, 角: 2, 飛: 2 },
     { stage: 10, name: "第10局", 歩: 12, 香: 5, 桂: 4, 銀: 4, 金: 4, 角: 2, 飛: 2, 王: 1 },
-    // チェス駒が侵入する新規ステージ
     { stage: 11, name: "異界の尖兵", 歩: 4, 銀: 2, ポーン: 6, ナイト: 2 },
     { stage: 12, name: "黒鉄の城塞", 歩: 2, 銀: 4, 金: 2, ポーン: 4, ルーク: 3 },
     { stage: 13, name: "天空の支配者", 銀: 2, 金: 2, 角: 2, 飛: 2, ポーン: 2, ナイト: 2, ビショップ: 2, クイーン: 2 },
@@ -38,7 +33,6 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2 }
 ];
 
-// 初期化
 document.fonts.ready.then(() => {
     initGame();
     setupEvents();
@@ -63,25 +57,10 @@ function initGame() {
         celestialColor = 0xe0e8ff; celestialPos = new THREE.Vector3(80, 180, -80); celestialRadius = 11;
     }
 
-    // main.js
-
-// (インポート部などはそのまま)
-
-function initGame() {
-    // (天候・背景などの初期化はそのまま)
-
-    // --- 追加：循環参照を防ぐため、STATEにダメージ処理関数をバインド ---
+    // 循環参照対策 & スタンタイマー初期化
     STATE.takeDamage = takeDamage;
-
-    // STATEにプレイヤーのスタンタイマーを初期追加
     STATE.playerStunTime = 0;
 
-    updateUI(); 
-    animate();
-}
-
-// (以降の関数群、イベント設定はそのまま)
-    
     STATE.scene = new THREE.Scene();
     STATE.scene.background = new THREE.Color(skyColor);
     STATE.scene.fog = new THREE.FogExp2(fogColor, 0.0035);
@@ -122,7 +101,6 @@ function initGame() {
     STATE.scene.add(celestialMesh);
     STATE.celestialBody = celestialMesh;
 
-    // 雲オブジェクト生成
     const cloudCount = 12 + Math.floor(Math.random() * 4);
     for (let i = 0; i < cloudCount; i++) {
         const cloudGroup = new THREE.Group();
@@ -274,9 +252,6 @@ function initGame() {
         document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
     }
 
-    // STATEにプレイヤーのスタンタイマーを初期追加
-    STATE.playerStunTime = 0;
-
     updateUI(); 
     animate();
 }
@@ -372,7 +347,6 @@ function filterEmptyStages(stageList) {
     });
 }
 
-// CSVパース・ステージロード処理
 async function loadStages() {
     let input = SPREADSHEET_ID.trim();
     let cleanedId = input;
@@ -559,7 +533,6 @@ function startStage(stageData) {
     STATE.camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
     STATE.camera.rotation.set(0, 0, 0);
     
-    // スタンタイマーのリセット
     STATE.playerStunTime = 0;
 
     const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五"];
@@ -892,7 +865,6 @@ function setupEvents() {
             togglePause();
         }
         
-        // スタン中はジャンプ不可
         if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive && !STATE.isPaused) {
             if (STATE.playerStunTime <= 0) {
                 PLAYER.vy = JUMP_FORCE;
@@ -960,7 +932,6 @@ function setupEvents() {
         if (STATE.shopOpen || isTouchDevice) return;
         if (!document.pointerLockElement) { document.body.requestPointerLock(); return; }
         
-        // スタン中でない場合のみ通常射撃を受け付ける
         if (e.button === 0 && STATE.playerStunTime <= 0) {
             PLAYER.isShooting = true;
         }
@@ -1181,16 +1152,14 @@ function animate() {
     if (!STATE.stageActive) return;
     if (STATE.isPaused) return;
 
-    // --- プレイヤーのスタン（行動阻害）タイマーのデクリメント処理 ---
     if (STATE.playerStunTime > 0) {
-        STATE.playerStunTime -= 16.67; // 約60fps想定で引く
+        STATE.playerStunTime -= 16.67; 
         if (STATE.playerStunTime < 0) STATE.playerStunTime = 0;
-        PLAYER.isShooting = false; // スタン中は射撃解除
+        PLAYER.isShooting = false; 
     }
 
     const move = new THREE.Vector3();
     
-    // スタン中でない場合のみプレイヤーのキー/タッチによる移動を許可
     if (STATE.playerStunTime <= 0) {
         if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
         if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
@@ -1273,7 +1242,6 @@ function animate() {
             if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
                 flashCrosshair();
                 if (en.takeHit(PLAYER.power)) {
-                    // キングか王を倒したときは高スコア
                     const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K');
                     STATE.score += (isBoss ? 10000 : 200);
                     
