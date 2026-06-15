@@ -971,7 +971,9 @@
             dashActive: false,
             stageActive: false,
             isPractice: false,               // 修練モード判定
-            currentPracticeStage: null       // 現在の練習ステージデータ
+            currentPracticeStage: null,       // 現在の練習ステージデータ
+            celestialBody: null,             // 太陽・月オブジェクトの保持用
+            clouds: []                       // 雲オブジェクト群の保持用
         };
         
         const PIECE_NAMES = {
@@ -1395,6 +1397,7 @@
             // --- 現在時刻に連動する空・フォグ・ライティングの調整 ---
             const hour = new Date().getHours();
             let skyColor, fogColor, sunColor, sunIntensity, ambientColor, ambientIntensity;
+            let celestialColor, celestialPos, celestialRadius;
 
             if (hour >= 5 && hour < 9) { // 朝 (5時〜8時59分) [2]
                 skyColor = 0xe5cca9;
@@ -1403,6 +1406,11 @@
                 sunIntensity = 1.0;
                 ambientColor = 0xffeadd;
                 ambientIntensity = 0.7;
+                
+                // 朝焼けのオレンジの太陽（低めの位置）
+                celestialColor = 0xffaa66;
+                celestialPos = new THREE.Vector3(120, 150, 50);
+                celestialRadius = 14;
             } else if (hour >= 9 && hour < 16) { // 昼 (9時〜15時59分) [2]
                 skyColor = 0xd2dad2;
                 fogColor = 0xd2dad2;
@@ -1410,6 +1418,11 @@
                 sunIntensity = 1.3;
                 ambientColor = 0xffffff;
                 ambientIntensity = 0.8;
+
+                // 輝く白黄色の太陽（高い位置）
+                celestialColor = 0xfffbe0;
+                celestialPos = new THREE.Vector3(40, 200, 40);
+                celestialRadius = 15;
             } else if (hour >= 16 && hour < 19) { // 夕 (16時〜18時59分) [2]
                 skyColor = 0xb84a39; // 夕焼け朱色
                 fogColor = 0xb84a39;
@@ -1417,6 +1430,11 @@
                 sunIntensity = 1.1;
                 ambientColor = 0xffebd5;
                 ambientIntensity = 0.6;
+
+                // 沈みかける深い茜色の太陽（低めの位置）
+                celestialColor = 0xee3311;
+                celestialPos = new THREE.Vector3(-120, 140, -30);
+                celestialRadius = 16;
             } else { // 夜 (19時〜翌4時59分) [2]
                 skyColor = 0x0c0d1a;
                 fogColor = 0x0c0d1a;
@@ -1424,11 +1442,18 @@
                 sunIntensity = 0.7;
                 ambientColor = 0x161a2b; // 深い青みを帯びた補助光
                 ambientIntensity = 0.45;
+
+                // 青白く優しい光を放つ月
+                celestialColor = 0xe0e8ff;
+                celestialPos = new THREE.Vector3(80, 180, -80);
+                celestialRadius = 11;
             }
 
             scene = new THREE.Scene();
             scene.background = new THREE.Color(skyColor);
-            scene.fog = new THREE.FogExp2(fogColor, 0.009);
+            
+            // 霧が変な色の壁に見えないよう、減衰率を0.0035に緩和して美しく奥行きのある風景に調整
+            scene.fog = new THREE.FogExp2(fogColor, 0.0035);
 
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.rotation.order = 'YXZ';
@@ -1458,6 +1483,57 @@
             sun.shadow.camera.bottom = -d;
             sun.shadow.bias = -0.0005;
             scene.add(sun);
+
+            // --- 太陽、または月の配置（フォグを無効にした自己発光マテリアル） ---
+            const celestialGeom = new THREE.SphereGeometry(celestialRadius, 32, 32);
+            const celestialMat = new THREE.MeshBasicMaterial({ color: celestialColor, fog: false });
+            const celestialMesh = new THREE.Mesh(celestialGeom, celestialMat);
+            celestialMesh.position.copy(celestialPos);
+            scene.add(celestialMesh);
+            STATE.celestialBody = celestialMesh;
+
+            // --- 「流れる雲」の立体オブジェクト生成 ---
+            const cloudCount = 12 + Math.floor(Math.random() * 4); // 12〜15個程度
+            for (let i = 0; i < cloudCount; i++) {
+                const cloudGroup = new THREE.Group();
+                const partCount = 3 + Math.floor(Math.random() * 4); // 3〜6個のパーツを融合させて雲を作る
+                const cloudColor = (hour >= 19 || hour < 5) ? 0x3d435e : 0xffffff;
+                const cloudOpacity = (hour >= 19 || hour < 5) ? 0.4 : 0.55;
+
+                for (let j = 0; j < partCount; j++) {
+                    const rx = 5 + Math.random() * 8;
+                    const ry = 2.5 + Math.random() * 3.5;
+                    const rz = 5 + Math.random() * 8;
+                    const geom = new THREE.DodecahedronGeometry(1, 1);
+                    geom.scale(rx, ry, rz);
+
+                    const mat = new THREE.MeshBasicMaterial({
+                        color: cloudColor,
+                        transparent: true,
+                        opacity: cloudOpacity,
+                        fog: false
+                    });
+                    const part = new THREE.Mesh(geom, mat);
+                    // グループ内で複雑な立体を作るためのオフセット
+                    part.position.set(
+                        (Math.random() - 0.5) * 14,
+                        (Math.random() - 0.5) * 4,
+                        (Math.random() - 0.5) * 14
+                    );
+                    cloudGroup.add(part);
+                }
+
+                const cx = (Math.random() - 0.5) * 600;
+                const cy = 60 + Math.random() * 20; // 地上から高さ60〜80付近
+                const cz = (Math.random() - 0.5) * 500;
+                cloudGroup.position.set(cx, cy, cz);
+                cloudGroup.userData = {
+                    speed: 0.04 + Math.random() * 0.08 // 流れる速度を雲ごとに個別設定
+                };
+
+                scene.add(cloudGroup);
+                STATE.clouds.push(cloudGroup);
+            }
 
             AssetFactory.init();
 
@@ -2662,6 +2738,19 @@
             requestAnimationFrame(animate);
             if (STATE.isGameOver) return;
 
+            // 「ゆっくり流れる雲」のループアニメーション（一時停止中やメニュー画面でも美しく描画され続けます）
+            if (STATE.clouds) {
+                STATE.clouds.forEach(cloud => {
+                    cloud.position.x += cloud.userData.speed;
+                    // 限界距離に達したら逆方向の端へ戻し、適度に高さを再設定
+                    if (cloud.position.x > 320) {
+                        cloud.position.x = -320;
+                        cloud.position.z = (Math.random() - 0.5) * 500;
+                        cloud.position.y = 60 + Math.random() * 20;
+                    }
+                });
+            }
+
             // 非プレイ中（メニュー表示時）のみ3D俯瞰旋回カメラを適用
             if (!STATE.stageActive) {
                 const time = Date.now() * 0.00015; // 回転の速度調整
@@ -2676,7 +2765,7 @@
             renderer.render(scene, camera);
 
             if (!STATE.stageActive) return;
-            if (STATE.isPaused) return; // 一時停止中は更新処理をスキップ
+            if (STATE.isPaused) return; // 一時停止中はプレイヤーの行動などの更新処理をスキップ
 
             const move = new THREE.Vector3();
             if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
