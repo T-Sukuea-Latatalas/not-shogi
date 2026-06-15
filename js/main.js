@@ -63,6 +63,25 @@ function initGame() {
         celestialColor = 0xe0e8ff; celestialPos = new THREE.Vector3(80, 180, -80); celestialRadius = 11;
     }
 
+    // main.js
+
+// (インポート部などはそのまま)
+
+function initGame() {
+    // (天候・背景などの初期化はそのまま)
+
+    // --- 追加：循環参照を防ぐため、STATEにダメージ処理関数をバインド ---
+    STATE.takeDamage = takeDamage;
+
+    // STATEにプレイヤーのスタンタイマーを初期追加
+    STATE.playerStunTime = 0;
+
+    updateUI(); 
+    animate();
+}
+
+// (以降の関数群、イベント設定はそのまま)
+    
     STATE.scene = new THREE.Scene();
     STATE.scene.background = new THREE.Color(skyColor);
     STATE.scene.fog = new THREE.FogExp2(fogColor, 0.0035);
