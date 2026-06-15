@@ -3,7 +3,175 @@
 import * as THREE from 'three';
 import { COLORS, STATE, EYE_HEIGHT, GROUND_Y, BOARD_SIZE } from './constants.js';
 import { AssetFactory } from './assets.js';
-import { takeDamage } from './main.js';
+
+import * as THREE from 'three';
+import { COLORS, STATE, EYE_HEIGHT, GROUND_Y, BOARD_SIZE } from './constants.js';
+import { AssetFactory } from './assets.js';
+// 循環参照を避けるため、main.js からの直接インポートは行いません
+
+export class Projectile {
+    constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false, isStun = false) {
+        this.isEnemy = isEnemy;
+        this.isHoming = isHoming;
+        this.isStun = isStun; 
+        this.speed = speed;
+        this.velocity = dir.clone().normalize().multiplyScalar(speed);
+        
+        let color = isEnemy ? (isHoming ? 0x8000ff : COLORS.spirit) : COLORS.vermillion;
+        if (isEnemy && isStun) {
+            color = 0xff6600;
+        }
+        
+        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 });
+        this.mesh = new THREE.Mesh(new THREE.SphereGeometry(size), mat);
+        this.mesh.position.copy(pos);
+        this.alive = true;
+        this.life = 300;
+        STATE.scene.add(this.mesh);
+    }
+    update() {
+        if (this.isHoming && this.isEnemy) {
+            const targetDir = new THREE.Vector3().subVectors(STATE.camera.position, this.mesh.position).normalize();
+            this.velocity = this.velocity.lerp(targetDir.multiplyScalar(this.speed), 0.03);
+        }
+        this.mesh.position.add(this.velocity);
+        this.life--;
+        if (this.life <= 0) this.destroy();
+
+        if (this.isEnemy) {
+            const playerBody = STATE.camera.position.clone().add(new THREE.Vector3(0, -EYE_HEIGHT / 2, 0));
+            const dist = this.mesh.position.distanceTo(playerBody);
+            if (dist < 2.0) {
+                // STATE にバインドされた関数を安全に実行
+                if (typeof STATE.takeDamage === 'function') {
+                    STATE.takeDamage(this.isHoming ? 5 : 10);
+                }
+                
+                if (this.isStun) {
+                    STATE.playerStunTime = 1000; 
+                }
+                
+                this.destroy();
+            }
+        }
+    }
+    destroy() { this.alive = false; STATE.scene.remove(this.mesh); }
+}
+
+// (Item クラスはそのまま)
+
+export class Enemy {
+    // (constructor などの初期化処理はそのまま)
+
+    update(playerPos, others) {
+        const isAirborne = ['桂', 'ナイト', 'N', 'クイーン', 'Q'].includes(this.type);
+        if (!isAirborne) {
+            this.mesh.position.y = GROUND_Y;
+        }
+
+        const diff = new THREE.Vector3().subVectors(playerPos, this.mesh.position);
+        const xzDist = Math.sqrt(diff.x * diff.x + diff.z * diff.z);
+        const dir = diff.clone().normalize().multiplyScalar(1);
+        dir.y = 0;
+
+        if (xzDist < 2.8 && Math.abs(playerPos.y - (this.mesh.position.y + 1.2)) < 5.0) {
+            if (this.type === 'ルーク' || this.type === 'R') {
+                if (typeof STATE.takeDamage === 'function') {
+                    STATE.takeDamage(10);
+                }
+                STATE.playerStunTime = 1000; 
+            } else {
+                if (typeof STATE.takeDamage === 'function') {
+                    STATE.takeDamage(0.5);
+                }
+            }
+        }
+
+        switch(this.type) {
+            // (各駒の挙動分岐処理はそのまま)
+            
+            case 'ナイト':
+            case 'N':
+                // (ナイトの処理はそのまま)
+                if (this.knightState === 3) {
+                    this.mesh.position.y -= 0.6;
+                    const dropDir = new THREE.Vector3(this.knightTargetX - this.mesh.position.x, 0, this.knightTargetZ - this.mesh.position.z);
+                    if (dropDir.length() > 0.2) {
+                        this.mesh.position.add(dropDir.normalize().multiplyScalar(this.speed * 1.5));
+                    }
+                    if (this.mesh.position.y <= GROUND_Y) {
+                        this.mesh.position.y = GROUND_Y;
+                        this.knightState = 0; 
+                        
+                        const distToLanding = this.mesh.position.distanceTo(new THREE.Vector3(playerPos.x, GROUND_Y, playerPos.z));
+                        if (distToLanding < 4.0) {
+                            if (typeof STATE.takeDamage === 'function') {
+                                STATE.takeDamage(25);
+                            }
+                        }
+                        
+                        const circleGeom = new THREE.RingGeometry(0.1, 4.0, 32);
+                        const circleMat = new THREE.MeshBasicMaterial({ color: 0xff3300, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                        const circle = new THREE.Mesh(circleGeom, circleMat);
+                        circle.rotation.x = Math.PI / 2;
+                        circle.position.set(this.mesh.position.x, GROUND_Y + 0.05, this.mesh.position.z);
+                        STATE.scene.add(circle);
+                        setTimeout(() => { STATE.scene.remove(circle); }, 300);
+                    }
+                }
+                break;
+                
+            // (ビショップ、ルーク、クイーン、キング等の分岐はそのまま)
+        }
+
+        this.applySeparation(others);
+
+        const eLimit = BOARD_SIZE / 2 - 2.0;
+        this.mesh.position.x = Math.max(-eLimit, Math.min(eLimit, this.mesh.position.x));
+        this.mesh.position.z = Math.max(-eLimit, Math.min(eLimit, this.mesh.position.z));
+
+        if (this.type === '香' && this.chargeState === 1) {
+            this.mesh.lookAt(this.chargeTarget.x, this.mesh.position.y, this.chargeTarget.z);
+        } else {
+            this.mesh.lookAt(playerPos.x, this.mesh.position.y, playerPos.z);
+        }
+    }
+
+    // (applySeparation, firePattern, takeHit などの処理はそのまま)
+
+    triggerKingExplosion() {
+        const explosionOrigin = this.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        
+        const expGeom = new THREE.SphereGeometry(1.0, 32, 32);
+        const expMat = new THREE.MeshBasicMaterial({ color: 0xff1100, transparent: true, opacity: 0.8 });
+        const expMesh = new THREE.Mesh(expGeom, expMat);
+        expMesh.position.copy(explosionOrigin);
+        STATE.scene.add(expMesh);
+        
+        let currentScale = 1.0;
+        const interval = setInterval(() => {
+            currentScale += 0.4;
+            if (expMesh) {
+                expMesh.scale.set(currentScale, currentScale, currentScale);
+                expMat.opacity -= 0.04;
+                if (expMat.opacity <= 0) {
+                    clearInterval(interval);
+                    STATE.scene.remove(expMesh);
+                }
+            } else {
+                clearInterval(interval);
+            }
+        }, 16);
+
+        const playerPos = STATE.camera.position.clone();
+        const dist = explosionOrigin.distanceTo(playerPos);
+        if (dist < 8.0) {
+            if (typeof STATE.takeDamage === 'function') {
+                STATE.takeDamage(50);
+            }
+        }
+    }
+}
 
 export class Projectile {
     // コンストラクタに isStun = false を追加
