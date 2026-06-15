@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 import { COLORS, STATE, EYE_HEIGHT, GROUND_Y, BOARD_SIZE } from './constants.js';
-import { AssetFactory } from './assets.js';
+// 変更後の entities.js の一節（例）
+import { getChessGeometry } from './assets.js'; // getChessGeometryをインポート
+
+const chessTypes = ['ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'P', 'N', 'B', 'R', 'Q', 'K'];
+let geom;
+if (chessTypes.includes(type)) {
+    this.mats = AssetFactory.getChessMaterials(type);
+    // チェス駒専用の3D立体形状を動的生成、またはAssetFactory内部でキャッシュしたものを取得
+    geom = getChessGeometry(type); 
+} else {
+    this.mats = AssetFactory.getMaterials(type);
+    geom = AssetFactory.pieceGeom; // 将棋の五角形駒
+}
+this.mesh = new THREE.Mesh(geom, this.mats);
 
 export class Projectile {
     constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false, isStun = false) {
