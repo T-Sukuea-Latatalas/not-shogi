@@ -1,3 +1,5 @@
+// constants.js
+
 export const COLORS = { wood: 0xe3c88d, gold: 0xd4af37, vermillion: 0xae1f23, ink: 0x1a1a1a, spirit: 0x800080 };
 
 export const STATE = { 
@@ -24,9 +26,14 @@ export const STATE = {
     boardGroup: null,
     // ステージ情報管理
     stages: [],
-    currentStageIndex: 0
+    currentStageIndex: 0,
+    // --- 追加：スタン状態を管理するタイマーを初期定義 ---
+    playerStunTime: 0,
+    // --- 追加：循環参照を防ぐためのダメージ関数バインド用 ---
+    takeDamage: null
 };
 
+// (他の定数はそのまま)
 export const PIECE_NAMES = {
     '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
 };
