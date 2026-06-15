@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>非将棋</title>
+    <!-- CSSの読み込み -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="washi-overlay"></div>
+    <div id="damage-vignette"></div>
+    
+    <div id="ui-layer">
+        <div id="score-container">所持銭：<span id="score-val">0</span></div>
+        <div id="hp-container">
+            <div class="label">生命</div>
+            <div id="hp-frame"><div id="hp-bar"></div></div>
+        </div>
+        <div id="wave-container">
+            <div class="enemy-count">残敵：<span id="enemy-count">0</span></div>
+            <div class="wave-text">第<span id="wave-val">一</span>局</div>
+        </div>
+        <div id="crosshair"></div>
+        
+        <!-- ショップメニュー -->
+        <div id="shop-menu">
+            <h2 style="text-align:center; margin-top:0; margin-bottom:15px; font-size:1.4rem;">御品書き</h2>
+            <div class="shop-item" id="shop-item-0">
+                <div><span class="shop-marker">　</span><span>腕力強化 (威力)</span></div> <span id="cost-power">500</span>
+            </div>
+            <div class="shop-item" id="shop-item-1">
+                <div><span class="shop-marker">　</span><span>連射技術 (速度)</span></div> <span id="cost-rate">800</span>
+            </div>
+            <div class="shop-item" id="shop-item-2">
+                <div><span class="shop-marker">　</span><span>瞬身の術 (移動)</span></div> <span id="cost-speed">400</span>
+            </div>
+            <div class="shop-item" id="shop-item-3">
+                <div><span class="shop-marker">　</span><span>強靭な魂 (体力)</span></div> <span id="cost-hp">600</span>
+            </div>
+            <p id="shop-close-desc" style="font-size:11px; text-align:center; color:#444; margin-top:15px; margin-bottom:0; line-height:1.4;">
+                [Tab]: 開閉<br>
+                [Wheel]: 選択 | [右Click]: 購入
+            </p>
+        </div>
+        
+        <!-- バーチャルコントローラー -->
+        <div id="touch-controls">
+            <div id="joystick-outer">
+                <div id="joystick-knob"></div>
+            </div>
+            <button id="btn-shop" class="touch-btn menu-btn">店</button>
+            <button id="btn-pause" class="touch-btn menu-btn">控</button>
+            <button id="btn-shoot" class="touch-btn combat-btn">撃</button>
+            <button id="btn-jump" class="touch-btn combat-btn">跳</button>
+            <button id="btn-dash" class="touch-btn combat-btn">走</button>
+        </div>
+
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 発射 | Tab: ショップ | Esc: 一時停止</div>
+    </div>
+
+    <!-- タイトル画面 -->
+    <div id="title-screen">
+        <div class="deco-circle"></div>
+        <div class="menu-inner" style="text-align: center;">
+            <div class="washitsu-header">
+                <span class="sub-title">Not Shogi</span>
+                <h1 class="miyabi-title" style="font-size: 4.5rem;">非将棋</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+                <button id="btn-campaign-start" class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;">本戦 (盤上選択へ)</button>
+                <button id="btn-practice-start" class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem; border-color: #d4af37; color: #d4af37; background: rgba(20, 20, 20, 0.6);">修練 (一対一練習)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ロード画面 -->
+    <div id="loading-screen" style="display: none;">
+        <div id="loading-content" style="text-align: center; max-width: 600px; padding: 20px;">
+            <h2 id="loading-title">盤上生成中...</h2>
+            <p id="loading-status" style="font-size: 1.1rem; color: #aaa; margin-top: 10px; line-height: 1.6;">スプレッドシートからデータを取得しています。</p>
+            <div id="loading-error-actions" style="display: none; margin-top: 30px;">
+                <button id="btn-fallback-start" class="clear-btn" style="font-size: 1.2rem; padding: 12px 35px; border: 2px solid #ae1f23; background: #d4af37; color: #1a1a1a;">予備の盤上で開始</button>
+                <div style="margin-top: 25px; font-size: 0.9rem; color: #888; text-align: left; line-height: 1.8; border-top: 1px solid #333; padding-top: 15px;">
+                    <strong>【読み込みに失敗しました】</strong><br>
+                     <strong>予備のデータで遊ぶか、サイトを更新してください。</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ステージ選択画面 -->
+    <div id="stage-select-menu" style="display:none;">
+        <div class="deco-circle"></div>
+        <div class="menu-inner">
+            <div class="washitsu-header">
+                <span class="sub-title">SELECT STAGE</span>
+                <h1 class="miyabi-title">盤上選択</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="stage-list" id="stage-list"></div>
+            <button id="btn-back-to-title" class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 修練（駒選択）画面 -->
+    <div id="practice-select-menu" style="display:none;">
+        <div class="deco-circle"></div>
+        <div class="menu-inner">
+            <div class="washitsu-header">
+                <span class="sub-title">PRACTICE MODE</span>
+                <h1 class="miyabi-title">修練対戦駒選択</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="stage-list" id="practice-piece-list"></div>
+            <button id="btn-back-to-title-practice" class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- ステージクリア画面 -->
+    <div id="stage-clear-menu" style="display:none;">
+        <div class="sakura-container">
+            <div class="petal p1"></div>
+            <div class="petal p2"></div>
+            <div class="petal p3"></div>
+            <div class="petal p4"></div>
+            <div class="petal p5"></div>
+            <div class="petal p6"></div>
+            <div class="petal p7"></div>
+            <div class="petal p8"></div>
+        </div>
+        <div class="ensou-container">
+            <div class="ensou-circle"></div>
+            <h1 class="clear-main-title">見事</h1>
+        </div>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">局を制しました</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button id="btn-next-stage" class="clear-btn next-btn">次の局へ</button>
+            <button id="btn-clear-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;">他の駒と修練</button>
+            <button id="btn-clear-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-clear-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 一時停止（ポーズ）画面 -->
+    <div id="pause-menu" style="display:none;">
+        <div class="ensou-container" style="margin-bottom: 20px;">
+            <div class="ensou-circle"></div>
+            <h1 class="clear-main-title" style="font-size: 3.2rem;">一時停止</h1>
+        </div>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">一休みいたしましょう</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button id="btn-resume-game" class="clear-btn next-btn">再開</button>
+            <button id="btn-pause-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;">修練選択に戻る</button>
+            <button id="btn-pause-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-pause-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 敗北（投了）画面 -->
+    <div id="game-over">
+        <h1>投了</h1>
+        <div class="clear-btn-group" style="margin-top: 40px; z-index: 1005;">
+            <button id="btn-restart-stage" class="clear-btn next-btn">再戦を申し込む</button>
+            <button id="btn-go-practice" class="clear-btn next-btn" style="background:#d4af37; border-color:#f5f5f0; color:#1a1a1a; display:none;">修練選択に戻る</button>
+            <button id="btn-go-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-go-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <div id="msg-overlay"></div>
+
+    <!-- Three.js のインポートマップ -->
+    <script type="importmap">
+    { 
+        "imports": { 
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js" 
+        } 
+    }
+    </script>
+    
+    <!-- メインエントリースクリプトのロード（ESモジュール） -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
