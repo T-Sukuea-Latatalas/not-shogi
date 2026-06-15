@@ -160,7 +160,7 @@
         #game-over h1 { font-size: 150px; margin: 0; writing-mode: vertical-rl; letter-spacing: 0.5em; }
         .controls-hint { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 14px; color: #444; text-align: center; }
 
-        /* --- モバイル対応 バーチャルUI --- */
+        /* --- スマホ・タブレット対応 バーチャルUI --- */
         #touch-controls {
             display: none;
             position: absolute;
@@ -233,7 +233,7 @@
             border-color: #d4af37;
         }
 
-        /* メニューボタン（短冊風角丸四角形） */
+        /* メニューボタン */
         .menu-btn {
             width: 60px;
             height: 60px;
@@ -248,7 +248,7 @@
             right: 40px;
         }
 
-        /* 戦闘ボタン（アークレイアウト） */
+        /* 戦闘ボタン */
         #btn-shoot {
             width: 100px;
             height: 100px;
@@ -280,7 +280,7 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(13, 13, 13, 0.92); /* 薄墨色 */
+            background: rgba(13, 13, 13, 0.92);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             z-index: 2000;
@@ -890,7 +890,7 @@
                 height: 40px;
             }
 
-            /* スマホ向け戦闘ボタン（アークレイアウト） */
+            /* スマホ向け戦闘ボタン */
             #btn-shoot {
                 width: 86px;
                 height: 86px;
@@ -1045,7 +1045,7 @@
             </div>
         </div>
         
-        <!-- 改良版ショップメニュー -->
+        <!-- ショップメニュー -->
         <div id="shop-menu">
             <h2 style="text-align:center; margin-top:0; margin-bottom:15px; font-size:1.4rem;">御品書き</h2>
             <div class="shop-item" id="shop-item-0" onclick="upgradeByIndex(0)">
@@ -1069,7 +1069,7 @@
             </p>
         </div>
         
-        <!-- 新・和モダン バーチャルコントローラー -->
+        <!-- バーチャルコントローラー -->
         <div id="touch-controls">
             <!-- 移動用ジョイスティック -->
             <div id="joystick-outer">
@@ -1080,7 +1080,7 @@
             <button id="btn-shop" class="touch-btn menu-btn">切</button>
             <button id="btn-pause" class="touch-btn menu-btn">控</button>
 
-            <!-- 右下戦闘エリア（アークレイアウト） -->
+            <!-- 右下戦闘エリア -->
             <button id="btn-shoot" class="touch-btn combat-btn">撃</button>
             <button id="btn-jump" class="touch-btn combat-btn">跳</button>
             <button id="btn-dash" class="touch-btn combat-btn">走</button>
@@ -1128,7 +1128,7 @@
         </div>
     </div>
 
-    <!-- 2. 新・ステージ選択画面（解説パネル付き） -->
+    <!-- 2. ステージ選択画面 -->
     <div id="stage-select-menu" style="display:none;">
         <div class="deco-circle"></div>
         <div class="menu-inner select-layout">
@@ -1154,7 +1154,7 @@
         </div>
     </div>
 
-    <!-- 2.5 修練（駒選択）画面（解説パネル付き） -->
+    <!-- 2.5 修練（駒選択）画面 -->
     <div id="practice-select-menu" style="display:none;">
         <div class="deco-circle"></div>
         <div class="menu-inner select-layout">
@@ -1180,7 +1180,7 @@
         </div>
     </div>
 
-    <!-- 3. 新・ステージクリア画面 -->
+    <!-- 3. ステージクリア画面 -->
     <div id="stage-clear-menu" style="display:none;">
         <div class="sakura-container">
             <div class="petal p1"></div>
@@ -1209,7 +1209,7 @@
         </div>
     </div>
 
-    <!-- 4. 新・一時停止（ポーズ）画面 -->
+    <!-- 4. 一時停止（ポーズ）画面 -->
     <div id="pause-menu" style="display:none;">
         <div class="ensou-container" style="margin-bottom: 20px;">
             <div class="ensou-circle"></div>
@@ -1365,7 +1365,6 @@
 
         let scene, camera, renderer, sun, boardGroup;
         let weaponMeshGroup; // プレイヤーの3D武器表示用グループ
-        let weaponBobTime = 0; // 手ブレ・歩行揺れアニメ用タイム変数
 
         // --- セーブ機能と進行制限関連のヘルパー ---
         function getClearedStages() {
@@ -1834,7 +1833,7 @@
             }
         };
 
-        // --- プレイヤー武器の3Dモデル更新（和風からくり武器へのディテールアップ＆構え最適化） ---
+        // --- プレイヤー武器の3Dモデル更新（和風からくりディテールアップ） ---
         function updateWeaponMesh() {
             if (!weaponMeshGroup) return;
 
@@ -1847,202 +1846,200 @@
             const slot = STATE.currentSlotIndex;
             if (slot === 4) return; // ショップ(店)選択時は武器を表示しない
 
-            const hand = STATE.dominantHand || 'right';
-            
-            // 【変更・追加要件1: 構え位置と角度の最適化】
-            // ただ浮いているように見えないよう、画面右下（または左下）から中央に向けてすっと自然に狙う角度に微調整
-            const posX = hand === 'right' ? 0.45 : -0.45;
-            const posY = -0.45;
-            const posZ = -1.1; 
-
             const localGroup = new THREE.Group();
-            localGroup.position.set(posX, posY, posZ);
 
-            // 利き手（右/左）に応じて銃口が自然に中央を向くように角度を細かく調整
-            localGroup.rotation.y = hand === 'right' ? -0.32 : 0.32;
-            localGroup.rotation.x = 0.05; 
-            localGroup.rotation.z = hand === 'right' ? -0.08 : 0.08;
-
-            // 【変更・追加要件2: 和風からくり武器としてのビジュアル強化マテリアル】
-            const ironMat = new THREE.MeshStandardMaterial({ color: 0x1f1f1f, roughness: 0.52, metalness: 0.85 });
-            const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.gold, roughness: 0.22, metalness: 0.88 });
-            const vermillionMat = new THREE.MeshStandardMaterial({ color: COLORS.vermillion, roughness: 0.58 });
-            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a341a, roughness: 0.82 }); // 渋い漆黒調の木枠
-            const ropeMat = new THREE.MeshStandardMaterial({ color: 0x9b8265, roughness: 0.95 }); // 補強縄
-            const fireMat = new THREE.MeshBasicMaterial({ color: 0xff3300, fog: false }); // 導火線の火花（発光）
+            // マテリアルの定義
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x1c1d1f, roughness: 0.5, metalness: 0.8 }); // 漆黒
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5a3116, roughness: 0.7 }); // 木製ストック
+            const goldMat = new THREE.MeshStandardMaterial({ color: COLORS.gold, roughness: 0.25, metalness: 0.85 }); // 真鍮・からくり
+            const vermillionMat = new THREE.MeshStandardMaterial({ color: COLORS.vermillion, roughness: 0.6 }); // 朱塗り
 
             if (slot === 0) {
-                // 1.「速射」: からくり速射連発和銃 (3連バレルガトリング＋木製銃床)
-                // 漆黒の金属バレル（3本を束ねて連発機構を表現）
-                for (let i = 0; i < 3; i++) {
-                    const angle = (i / 3) * Math.PI * 2;
-                    const bx = Math.cos(angle) * 0.035;
-                    const by = Math.sin(angle) * 0.035;
-                    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.9, 8), ironMat);
-                    barrel.rotation.x = Math.PI / 2;
-                    barrel.position.set(bx, by, -0.15);
-                    localGroup.add(barrel);
-                }
+                // --- 1.「速射」: からくり速射連発和銃 ---
+                // 漆黒の金属バレル
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.8, 8), ironMat);
+                barrel.rotation.x = Math.PI / 2;
+                barrel.position.set(0, 0, -0.2);
+                localGroup.add(barrel);
 
-                // 朱塗りの木製ストック・グリップ（Box）
-                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.16, 0.45), woodMat);
-                stock.position.set(0, -0.02, 0.3);
+                // 朱塗りの木製ストック（機関部・銃床）
+                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.5), woodMat);
+                stock.position.set(0, -0.05, 0.2);
                 localGroup.add(stock);
 
-                const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.15, 0.08), woodMat);
-                grip.position.set(0, -0.12, 0.2);
-                grip.rotation.x = 0.45;
+                const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.18, 0.08), woodMat);
+                grip.rotation.x = 0.3;
+                grip.position.set(0, -0.14, 0.25);
                 localGroup.add(grip);
 
-                // 金色の装飾締め輪
-                const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.08, 8), goldMat);
-                ring.rotation.x = Math.PI / 2;
-                ring.position.set(0, 0, -0.1);
-                localGroup.add(ring);
-
-                const ring2 = ring.clone();
-                ring2.position.set(0, 0, -0.45);
-                localGroup.add(ring2);
-
-                // からくり式の引金部（小さなBox）
-                const triggerFrame = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.04, 0.06), goldMat);
-                triggerFrame.position.set(0, -0.07, 0.16);
-                localGroup.add(triggerFrame);
-
-                const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.03, 0.015), ironMat);
-                trigger.position.set(0, -0.07, 0.15);
+                // からくり式の引金部＆ガード
+                const trigger = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.04, 0.03), ironMat);
+                trigger.position.set(0, -0.11, 0.18);
                 localGroup.add(trigger);
 
+                const triggerGuard = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.01, 8, 16), ironMat);
+                triggerGuard.position.set(0, -0.12, 0.18);
+                localGroup.add(triggerGuard);
+
+                // 金色のからくり連発式回転ドラム（弾倉）
+                const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 12), goldMat);
+                drum.rotation.x = Math.PI / 2;
+                drum.position.set(0, 0.035, -0.05);
+                localGroup.add(drum);
+
+                // 補強リング
+                const band = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.05, 8), goldMat);
+                band.rotation.x = Math.PI / 2;
+                band.position.set(0, 0, -0.45);
+                localGroup.add(band);
+
             } else if (slot === 1) {
-                // 2.「重撃」: 百雷大筒 (真鍮極太筒身＋補強金輪＋底部厚木枠)
-                // 重厚な真鍮色の大口径の砲身
-                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.75, 12), goldMat);
-                barrel.rotation.x = Math.PI / 2;
-                barrel.position.set(0, 0, -0.15);
-                localGroup.add(barrel);
+                // --- 2.「重撃」: 百雷大筒 ---
+                // 重厚な真鍮色の大口径砲身
+                const mainBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.68, 12), goldMat);
+                mainBarrel.rotation.x = Math.PI / 2;
+                mainBarrel.position.set(0, 0, -0.15);
+                localGroup.add(mainBarrel);
 
-                // 砲身を支える太い木枠の銃身床（底部）
-                const supportBed = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.65), woodMat);
-                supportBed.position.set(0, -0.11, 0.05);
-                localGroup.add(supportBed);
+                // 補強用の鉄製締め輪
+                const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.016, 8, 24), ironMat);
+                ring1.rotation.x = Math.PI / 2;
+                ring1.position.set(0, 0, -0.38);
+                localGroup.add(ring1);
 
-                // 補強用の金色の締め輪（Torus）
-                const bands = [-0.4, -0.1, 0.15];
-                bands.forEach(zOffset => {
-                    const band = new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.018, 8, 24), ironMat);
-                    band.rotation.x = Math.PI / 2;
-                    band.position.set(0, 0, zOffset);
-                    localGroup.add(band);
-                });
+                const ring2 = ring1.clone();
+                ring2.position.set(0, 0, -0.08);
+                localGroup.add(ring2);
 
-                // 朱塗りの大口径砲口装飾
-                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.08, 12), vermillionMat);
+                // 砲身を支える太い木枠の銃身床
+                const supportWood = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.65), woodMat);
+                supportWood.position.set(0, -0.1, -0.05);
+                localGroup.add(supportWood);
+
+                const heavyGrip = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 8), woodMat);
+                heavyGrip.rotation.x = 0.2;
+                heavyGrip.position.set(0, -0.22, 0.15);
+                localGroup.add(heavyGrip);
+
+                // 砲口の朱塗りマズルガード
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.06, 12), vermillionMat);
                 muzzle.rotation.x = Math.PI / 2;
-                muzzle.position.set(0, 0, -0.53);
+                muzzle.position.set(0, 0, -0.5);
                 localGroup.add(muzzle);
 
-                const mouthInner = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.02, 12), ironMat);
-                mouthInner.rotation.x = Math.PI / 2;
-                mouthInner.position.set(0, 0, -0.56);
-                localGroup.add(mouthInner);
-
             } else if (slot === 2) {
-                // 3.「狙撃」: 魂気からくり狙撃弩銃 (極長真鍮バレル＋和格子サイドストック＋望遠鏡風スコープ)
+                // --- 3.「狙撃」: 魂気からくり狙撃弩銃 ---
                 // 長い真鍮バレル
-                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.022, 1.4, 8), ironMat);
-                barrel.rotation.x = Math.PI / 2;
-                barrel.position.set(0, 0, -0.4);
-                localGroup.add(barrel);
+                const longBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 1.1, 8), ironMat);
+                longBarrel.rotation.x = Math.PI / 2;
+                longBarrel.position.set(0, 0, -0.4);
+                localGroup.add(longBarrel);
 
-                // 和風の格子を模したサイドストック
-                const sideFrameL = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.09, 0.5), woodMat);
-                sideFrameL.position.set(-0.04, -0.02, 0.15);
-                localGroup.add(sideFrameL);
+                // 和風の格子を模した木製サイドストック
+                const sideStockR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.45), woodMat);
+                sideStockR.position.set(0.04, -0.02, 0.05);
+                localGroup.add(sideStockR);
 
-                const sideFrameR = sideFrameL.clone();
-                sideFrameR.position.x = 0.04;
-                localGroup.add(sideFrameR);
+                const sideStockL = sideStockR.clone();
+                sideStockL.position.x = -0.04;
+                localGroup.add(sideStockL);
 
-                // 格子の横線表現
+                // 格子の横金棒
                 for (let i = 0; i < 3; i++) {
-                    const gridLine = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.015), goldMat);
-                    gridLine.position.set(0, -0.02 + (i - 1) * 0.03, 0.15);
-                    localGroup.add(gridLine);
+                    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.015, 0.015), goldMat);
+                    bar.position.set(0, -0.02, -0.1 + i * 0.12);
+                    localGroup.add(bar);
                 }
 
-                // 照準用の金色のリング（Torus）
-                const frontSight = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.008, 8, 16), goldMat);
-                frontSight.position.set(0, 0.07, -0.95);
+                // 照準用金リング（フロントサイト）
+                const frontSight = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.008, 8, 16), goldMat);
+                frontSight.position.set(0, 0.07, -0.85);
                 localGroup.add(frontSight);
 
-                // バレル上部にマウントされた望遠筒風のスコープ
-                const scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.016, 0.32, 8), ironMat);
-                scopeBody.rotation.x = Math.PI / 2;
-                scopeBody.position.set(0, 0.065, -0.1);
-                localGroup.add(scopeBody);
+                // 上部にマウントされた小さな望遠筒風スコープ
+                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.3, 8), goldMat);
+                scope.rotation.x = Math.PI / 2;
+                scope.position.set(0, 0.075, -0.15);
+                localGroup.add(scope);
 
-                // スコープの金リング装飾
-                const scopeRingF = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.04, 8), goldMat);
-                scopeRingF.rotation.x = Math.PI / 2;
-                scopeRingF.position.set(0, 0.065, -0.23);
-                localGroup.add(scopeRingF);
-
-                const scopeRingB = scopeRingF.clone();
-                scopeRingB.position.z = 0.03;
-                localGroup.add(scopeRingB);
-
-                // スコープを支える金のマウント部
-                const mount = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.04), goldMat);
-                mount.position.set(0, 0.035, -0.1);
+                // スコープマウント脚
+                const mount = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.05, 0.08), ironMat);
+                mount.position.set(0, 0.04, -0.15);
                 localGroup.add(mount);
 
             } else if (slot === 3) {
-                // 4.「焙烙」: 点火焙烙玉 (朱色球体＋十字締め縄＋点火導火線)
-                // 朱色の球体本体
-                const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), vermillionMat);
-                localGroup.add(sphere);
+                // --- 4.「焙烙」: 点火焙烙玉 ---
+                // 朱色の球体
+                const ball = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), vermillionMat);
+                localGroup.add(ball);
 
-                // 補強用の縄（Torusを十字に配置して質感を向上）
-                const ropeX = new THREE.Mesh(new THREE.TorusGeometry(0.202, 0.01, 8, 24), ropeMat);
-                ropeX.rotation.y = Math.PI / 2;
-                localGroup.add(ropeX);
+                // 補強用の十字縄（薄い茶色マテリアル）
+                const ropeMat = new THREE.MeshStandardMaterial({ color: 0x8a7255, roughness: 0.9 });
+                
+                const ropeV = new THREE.Mesh(new THREE.TorusGeometry(0.184, 0.012, 6, 24), ropeMat);
+                localGroup.add(ropeV);
 
-                const ropeY = new THREE.Mesh(new THREE.TorusGeometry(0.202, 0.01, 8, 24), ropeMat);
-                ropeY.rotation.x = Math.PI / 2;
-                localGroup.add(ropeY);
+                const ropeH = new THREE.Mesh(new THREE.TorusGeometry(0.184, 0.012, 6, 24), ropeMat);
+                ropeH.rotation.y = Math.PI / 2;
+                localGroup.add(ropeH);
 
-                // 金色の導火線取り出し口（ノズル）
-                const fuseBase = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.05, 8), goldMat);
-                fuseBase.position.set(0, 0.2, 0);
-                localGroup.add(fuseBase);
-
-                // 緩やかに曲がった細い導火線
-                const fuseGeom = new THREE.CylinderGeometry(0.008, 0.008, 0.12, 8);
-                const fuse = new THREE.Mesh(fuseGeom, ropeMat);
-                fuse.position.set(0.03, 0.24, 0);
-                fuse.rotation.z = -0.45;
+                // 頂点から突き出た導火線
+                const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12, 8), ropeMat);
+                fuse.position.set(0, 0.18, 0);
+                fuse.rotation.z = -0.35;
                 localGroup.add(fuse);
 
-                // 導火線の先端で赤く自己発光する導火線の火花
-                const spark = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 8), fireMat);
-                spark.position.set(0.065, 0.28, 0);
+                // 先端の火花（赤橙の自己発光球体）
+                const sparkMat = new THREE.MeshBasicMaterial({ 
+                    color: 0xff4d00, 
+                    toneMapped: false 
+                });
+                const spark = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 8), sparkMat);
+                spark.position.set(0.04, 0.24, 0);
+                spark.userData = { isSpark: true }; // アニメーション明滅用タグ
                 localGroup.add(spark);
-
-                // 火花の追加光源（点発光）
-                const sparkLight = new THREE.PointLight(0xff4500, 1.5, 1.5);
-                sparkLight.position.set(0.065, 0.28, 0);
-                localGroup.add(sparkLight);
             }
 
             weaponMeshGroup.add(localGroup);
         }
 
+        // --- 武器スロット・ショップ切替制御 ---
+        window.selectSlot = (index) => {
+            if (!STATE.stageActive || STATE.isPaused || STATE.isGameOver) return;
+
+            // 狙撃チャージ中だった場合はキャンセルしてFOVを戻す
+            if (STATE.currentSlotIndex === 2 && isCharging) {
+                cancelCharge();
+            }
+
+            STATE.currentSlotIndex = index;
+
+            // スロットが 4 (「店」) の時に自動でショップ開閉
+            if (index === 4) {
+                STATE.shopOpen = true;
+                document.getElementById('shop-menu').style.display = 'block';
+                PLAYER.isShooting = false;
+                updateShopHighlight();
+            } else {
+                STATE.shopOpen = false;
+                document.getElementById('shop-menu').style.display = 'none';
+            }
+
+            updateWeaponMesh();
+            updateUI();
+        };
+
         // 狙撃のチャージキャンセル
         function cancelCharge() {
             isCharging = false;
-            camera.fov = 75;
-            camera.updateProjectionMatrix();
-            document.getElementById('charge-container').style.display = 'none';
+            if (camera) {
+                camera.fov = 75;
+                camera.updateProjectionMatrix();
+            }
+            const chargeContainer = document.getElementById('charge-container');
+            if (chargeContainer) {
+                chargeContainer.style.display = 'none';
+            }
         }
 
         // --- 起動シーケンス ---
@@ -2219,9 +2216,9 @@
             sandFloor.receiveShadow = true;
             scene.add(sandFloor);
 
-            // --- 日本庭園「池」の配置干渉修正 ---
+            // --- 日本庭園「池」の配置 ---
             const pondGroup = new THREE.Group();
-            pondGroup.position.set(-55, 4.8, -55); // 盤外x/z -40〜40から遠ざけ配置 [1]
+            pondGroup.position.set(-55, 4.8, -55);
 
             const waterGeom = new THREE.CircleGeometry(17, 64);
             const waterMat = new THREE.MeshStandardMaterial({
@@ -2253,13 +2250,13 @@
             }
             scene.add(pondGroup);
 
-            // --- 東屋（あずまや）の配置干渉修正 ---
+            // --- 東屋（あずまや）の配置 ---
             const gazebo = createGazebo();
-            gazebo.position.set(-48, 5.0, -60); // 盤外x/z -40〜40から遠ざけ配置 [1]
+            gazebo.position.set(-48, 5.0, -60); 
             gazebo.scale.set(2, 2, 2); 
             scene.add(gazebo);
 
-            // --- 竹林（竹藪）の盤上生えバグ完全修正 ---
+            // --- 竹林（竹藪）の配置 ---
             const bambooGroup = new THREE.Group();
             const bambooCountTarget = 430; 
             let bambooCountCreated = 0;
@@ -2270,8 +2267,7 @@
                 const bz = (Math.random() - 0.5) * 300;
                 const dist = Math.sqrt(bx*bx + bz*bz);
 
-                // 将棋盤面 80x80 (x/z: -40〜40) の角周辺まで完全に排除する厳格判定 [1]
-                if (Math.abs(bx) < 46 && Math.abs(bz) < 46) { [1]
+                if (Math.abs(bx) < 46 && Math.abs(bz) < 46) { 
                     continue;
                 }
                 
@@ -2279,15 +2275,13 @@
                     continue;
                 }
                 
-                // 新・池座標（-55, -55）干渉半径20での完全回避 [1]
                 const distToPondSq = (bx - (-55))**2 + (bz - (-55))**2;
-                if (distToPondSq < 20 * 20) { [1]
+                if (distToPondSq < 20 * 20) { 
                     continue;
                 }
                 
-                // 新・東屋座標（-48, -60）干渉半径12での完全回避 [1]
                 const distToGazeboSq = (bx - (-48))**2 + (bz - (-60))**2;
-                if (distToGazeboSq < 12 * 12) { [1]
+                if (distToGazeboSq < 12 * 12) { 
                     continue;
                 }
 
@@ -2462,11 +2456,11 @@
 
             try {
                 if (cleanedId === "" || cleanedId.includes("YOUR_SPREADSHEET_ID")) {
-                    throw new Error("スプレッドシートID、またはURLが設定されていません。予備データを使用します。");
+                    throw new Error("スプレッドシートIDが設定されていません。");
                 }
                 
                 const res = await fetch(url);
-                if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
+                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
                 const csvText = await res.text();
                 const parsed = parseCSV(csvText);
                 
@@ -2526,13 +2520,13 @@
             
             for (let i = 1; i < lines.length; i++) {
                 const cols = splitCSVLine(lines[i], delimiter).map(c => c.replace(/^["']|["']$/g, ''));
-                if (cols.length < headers.length) continue;
+                if (cols.length === 0) continue;
                 
                 const rowObj = {};
                 headers.forEach((header, index) => {
-                    const val = cols[index];
+                    const val = (index < cols.length) ? cols[index] : "";
                     if (header === 'stage') {
-                        rowObj[header] = parseInt(val, 10);
+                        rowObj[header] = parseInt(val, 10) || 0;
                     } else if (header === 'name' || header === 'description') { 
                         rowObj[header] = val;
                     } else {
@@ -2622,17 +2616,6 @@
             `;
         }
 
-        function selectStage(index) {
-            currentStageIndex = index;
-            document.getElementById('stage-select-menu').style.display = 'none';
-            document.getElementById('stage-clear-menu').style.display = 'none';
-            document.getElementById('pause-menu').style.display = 'none';
-            document.getElementById('game-over').style.display = 'none';
-            STATE.isPaused = false;
-            STATE.isGameOver = false;
-            startStage(stages[index]);
-        }
-
         const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
         
         function buildPracticeMenu() {
@@ -2673,7 +2656,7 @@
             
             const info = PRACTICE_PIECE_DESCRIPTIONS[type] || {
                 name: type,
-                desc: "詳細未詳 of 駒。修練を積んで特性を解き明かせ。",
+                desc: "詳細未詳の駒。修練を積んで特性を解き明かせ。",
                 stats: "特性: 不明"
             };
 
@@ -2722,8 +2705,10 @@
             PLAYER.vy = 0;
             PLAYER.isGrounded = true;
             PLAYER.isShooting = false;
-            camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
-            camera.rotation.set(0, 0, 0);
+            if (camera) {
+                camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
+                camera.rotation.set(0, 0, 0);
+            }
 
             // スロットと補充数を初期化
             STATE.hourokuCount = 5;
@@ -2890,16 +2875,15 @@
         });
 
 
-        // --- 弾丸クラス (焙烙の放物線と爆発、各特性に対応) ---
+        // --- 弾丸クラス ---
         class Projectile {
             constructor(pos, dir, isEnemy = false, speed = 1.5, size = 0.25, isHoming = false) {
                 this.isEnemy = isEnemy;
                 this.isHoming = isHoming;
-                this.isHouroku = false; // 焙烙判定
+                this.isHouroku = false; 
                 this.speed = speed;
                 this.velocity = dir.clone().normalize().multiplyScalar(speed);
                 
-                // 焙烙弾は大きめの暗い朱色、それ以外は通常の色分け
                 let col = isEnemy ? (isHoming ? 0x8000ff : COLORS.spirit) : COLORS.vermillion;
                 if (!isEnemy && size > 0.28) col = 0xb83d2a;
 
@@ -2908,13 +2892,13 @@
                 this.mesh.position.copy(pos);
                 this.alive = true;
                 this.life = 300;
-                this.damage = PLAYER.power; // 腕力強化が基本ダメージに反映される
+                this.damage = PLAYER.power; 
                 scene.add(this.mesh);
             }
             update() {
-                // 焙烙の放物線物理挙動
+                // 焙烙の放物線挙動
                 if (this.isHouroku) {
-                    this.velocity.y -= 0.015; // 焙烙重力
+                    this.velocity.y -= 0.015; 
                     this.mesh.position.add(this.velocity);
                     this.life--;
 
@@ -2950,7 +2934,6 @@
                 this.alive = false;
                 scene.remove(this.mesh);
 
-                // 爆発フラッシュ演出（徐々に小さくなって消える球体）
                 const expGeom = new THREE.SphereGeometry(5.0, 16, 16);
                 const expMat = new THREE.MeshBasicMaterial({ color: 0xff4d00, transparent: true, opacity: 0.85 });
                 const expMesh = new THREE.Mesh(expGeom, expMat);
@@ -2970,12 +2953,19 @@
                 };
                 shrink();
 
-                // 範囲攻撃ダメージ判定
                 STATE.enemies.forEach(en => {
-                    const dist = en.mesh.position.distanceTo(this.mesh.position);
-                    if (dist < 7.0) { // 爆破ダメージ判定半径
+                    if (en.isDead) return;
+                    const dx = en.mesh.position.x - this.mesh.position.x;
+                    const dz = en.mesh.position.z - this.mesh.position.z;
+                    const dist2D = Math.sqrt(dx * dx + dz * dz);
+                    const dy = Math.abs(en.mesh.position.y - this.mesh.position.y);
+                    
+                    if (dist2D < 7.0 && dy < 15.0) { 
                         flashCrosshair();
-                        en.takeHit(this.damage); // 焙烙ダメージの適用
+                        const killed = en.takeHit(this.damage);
+                        if (killed) {
+                            en.isDead = true;
+                        }
                     }
                 });
                 updateUI();
@@ -3031,6 +3021,7 @@
                 this.chargeState = 0; 
                 this.chargeTarget = new THREE.Vector3();
                 this.chargeStartTime = 0;
+                this.isDead = false;
                 
                 scene.add(this.mesh);
             }
@@ -3043,6 +3034,8 @@
             }
 
             update(playerPos, others) {
+                if (this.isDead) return;
+
                 if (this.type !== '桂') {
                     this.mesh.position.y = GROUND_Y;
                 }
@@ -3136,7 +3129,7 @@
 
             applySeparation(others) {
                 others.forEach(other => {
-                    if (other === this) return;
+                    if (other === this || other.isDead) return;
                     const dx = this.mesh.position.x - other.mesh.position.x;
                     const dz = this.mesh.position.z - other.mesh.position.z;
                     const distSq = dx * dx + dz * dz;
@@ -3197,7 +3190,11 @@
             }
 
             takeHit(dmg) {
+                if (this.isDead) return false;
                 this.hp -= dmg;
+                if (this.hp <= 0) {
+                    this.isDead = true;
+                }
                 this.mats[0].emissive.setRGB(1, 1, 1); 
                 this.mats[0].emissiveIntensity = 2.0;
                 setTimeout(() => { 
@@ -3220,7 +3217,7 @@
         // 4種類の特性の異なる武器 射出処理
         function shoot() {
             const slot = STATE.currentSlotIndex;
-            if (slot === 4) return; // スロット4「店」では射撃不可
+            if (slot === 4) return; 
 
             const dir = new THREE.Vector3(); 
             camera.getWorldDirection(dir);
@@ -3240,13 +3237,13 @@
                 STATE.bullets.push(proj);
                 PLAYER.lastShot = Date.now();
             } else if (slot === 2) {
-                // 3.「狙撃」: 通常射出時は即撃ちせず、チャージ開始のフラグのみを立てる
+                // 3.「狙撃」: 通常射出時は即撃ちせず、チャージ開始
                 if (!isCharging) {
                     isCharging = true;
                     chargeStartTime = Date.now();
                 }
             } else if (slot === 3) {
-                // 4.「焙烙」: 投げると放物線を描き着弾で範囲爆破、個数制限あり
+                // 4.「焙烙」: 投げると放物線を描き着弾で範囲爆破
                 if (STATE.hourokuCount <= 0) {
                     showMsg("焙烙弾切れ");
                     return;
@@ -3256,15 +3253,15 @@
 
                 const proj = new Projectile(origin, dir, false, 1.1, 0.3);
                 proj.isHouroku = true;
-                proj.life = 120; // 盤外落下時等のための最大安全ライフ
-                proj.damage = 20; // 焙烙ダメージの適用
+                proj.life = 120; 
+                proj.damage = 20 + PLAYER.power * 2; 
 
                 // 放物線用に上向きの初速を補正
                 proj.velocity.y += 0.22;
 
                 STATE.bullets.push(proj);
                 PLAYER.lastShot = Date.now();
-                PLAYER.isShooting = false; // ボタン押しっぱなしによる誤連投を防止
+                PLAYER.isShooting = false; 
             }
         }
 
@@ -3274,10 +3271,9 @@
             const elapsed = Date.now() - chargeStartTime;
             const percent = Math.min(1.0, elapsed / maxChargeTime);
 
-            // 0.1秒以上のチャージがある場合のみ発射（誤クリック誤動作防止）
             if (percent > 0.1) {
-                const dmg = 5 + Math.floor(25 * percent); // チャージ率に応じ最大30ダメージ
-                const speed = 4.8; // チャージ連動の超高速弾
+                const dmg = 5 + Math.floor(25 * percent); 
+                const speed = 4.8; 
 
                 const dir = new THREE.Vector3();
                 camera.getWorldDirection(dir);
@@ -3296,7 +3292,12 @@
             if (STATE.isGameOver) return;
             PLAYER.hp -= amt;
             document.getElementById('damage-vignette').classList.add('hit');
-            setTimeout(() => document.getElementById('damage-vignette').classList.remove('hit'), 200);
+            setTimeout(() => {
+                const dmgVig = document.getElementById('damage-vignette');
+                if (dmgVig) {
+                    dmgVig.classList.remove('hit');
+                }
+            }, 200);
             updateUI();
             if (PLAYER.hp <= 0) {
                 STATE.isGameOver = true;
@@ -3326,8 +3327,11 @@
             if (STATE.score < cost) return;
             
             if (type === 'houroku') {
-                // 焙烙弾補充：一律100銭で購入可能（コスト上昇なし）
-                STATE.hourokuCount++;
+                if (STATE.hourokuCount >= 10) {
+                    showMsg("焙烙が満ちております");
+                    return;
+                }
+                STATE.hourokuCount = Math.min(10, STATE.hourokuCount + 1);
                 STATE.score -= cost;
             } else {
                 STATE.score -= cost;
@@ -3369,7 +3373,6 @@
             for(let k in UPGRADE_COSTS) document.getElementById('cost-'+k).innerText = UPGRADE_COSTS[k];
             updateShopHighlight();
 
-            // 武器インジケーター表示の同期
             for (let i = 0; i < 5; i++) {
                 const el = document.getElementById(`weapon-slot-${i}`);
                 if (!el) continue;
@@ -3393,7 +3396,7 @@
             setTimeout(() => { el.style.opacity = 0; el.style.transform = "scale(1.5)"; }, 2000);
         }
 
-        // --- デバッグ機能の定義 ---
+        // --- 開発用 ---
         function activateDebugMode() {
             PLAYER.maxHp = 9999;
             PLAYER.hp = 9999;
@@ -3401,14 +3404,14 @@
             PLAYER.fireRate = 50;
             PLAYER.speed = 1.2;
             STATE.score = 999999;
-            STATE.hourokuCount = 999;
+            STATE.hourokuCount = 10;
             showMsg("開発者モードON");
             updateUI();
         }
 
         // --- キーボード入力 ---
         const keys = {};
-        const debugKeys = ['1','1','5','4','1','4'];
+        const debugKeys = ['s', 'h', 'o', 'g', 'i'];
         let debugIndex = 0;
 
         window.addEventListener('keydown', e => {
@@ -3422,7 +3425,6 @@
                 PLAYER.isGrounded = false;
             }
 
-            // 数字キーでの武器スロットダイレクト変更
             if (e.code === 'Digit1') selectSlot(0);
             if (e.code === 'Digit2') selectSlot(1);
             if (e.code === 'Digit3') selectSlot(2);
@@ -3467,12 +3469,10 @@
 
         window.addEventListener('contextmenu', e => e.preventDefault());
 
-        // スクロール処理の統合 (ショップが店スロットのみ作動することに起因するスプリット処理)
         window.addEventListener('wheel', e => {
             if (!STATE.stageActive || STATE.isPaused || STATE.isGameOver) return;
 
             if (STATE.currentSlotIndex === 4 && STATE.shopOpen) {
-                // ショップメニューの選択肢切り替え (焙烙補充追加で最大5項目)
                 if (e.deltaY > 0) {
                     selectedShopIndex = (selectedShopIndex + 1) % 5;
                 } else if (e.deltaY < 0) {
@@ -3480,7 +3480,6 @@
                 }
                 updateShopHighlight();
             } else {
-                // 武器スロットホイール切り替え
                 let nextSlot = STATE.currentSlotIndex;
                 if (e.deltaY > 0) {
                     nextSlot = (nextSlot + 1) % 5;
@@ -3510,7 +3509,6 @@
             if (isTouchDevice) return;
             if (e.button === 0) {
                 PLAYER.isShooting = false;
-                // チャージ中に左クリックボタンを離した際の狙撃射出処理
                 if (STATE.currentSlotIndex === 2 && isCharging) {
                     releaseSniper();
                 }
@@ -3651,7 +3649,6 @@
             btnShoot.addEventListener('touchend', e => {
                 e.preventDefault();
                 PLAYER.isShooting = false;
-                // スマホタッチ撃ボタンを離した際の狙撃チャージ射出判定
                 if (STATE.currentSlotIndex === 2 && isCharging) {
                     releaseSniper();
                 }
@@ -3683,7 +3680,6 @@
                 }
             }, { passive: false });
 
-            // スマホ向けの「切」ボタンによる武器・ショップスロット循環切替
             btnShop.addEventListener('touchstart', e => {
                 e.preventDefault();
                 if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
@@ -3738,7 +3734,7 @@
                 document.getElementById('charge-container').style.display = 'block';
                 document.getElementById('charge-bar').style.width = (percent * 100) + '%';
                 
-                camera.fov = 75 - 35 * percent; // 最大までズームした時に視野角(FOV)を35に
+                camera.fov = 75 - 35 * percent; 
                 camera.updateProjectionMatrix();
             }
 
@@ -3751,34 +3747,10 @@
                 move.z += joystickVector.y;
             }
 
-            const isMoving = (move.length() > 0);
-            const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive);
+            const isMoving = move.length() > 0;
+            const isDashing = isMoving && (keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive));
 
-            // 【変更・追加要件3: 手ブレ（呼吸・歩行揺れ）ボビングアニメーション】
-            if (weaponMeshGroup && STATE.currentSlotIndex !== 4) {
-                if (isMoving) {
-                    // 歩行揺れ: 移動中かつダッシュ状態に応じて周波数を切り替え、リズミカルにボビング
-                    const speedMultiplier = isDashing ? DASH_MULT : 1.0;
-                    weaponBobTime += 0.16 * speedMultiplier;
-
-                    const ampX = isDashing ? 0.045 : 0.02;
-                    const ampY = isDashing ? 0.035 : 0.015;
-                    const ampRotZ = isDashing ? 0.04 : 0.015;
-
-                    // 上下左右に自然なフィギュア8（無限軌道型）に近い揺れを表現
-                    weaponMeshGroup.position.x = Math.sin(weaponBobTime) * ampX;
-                    weaponMeshGroup.position.y = Math.abs(Math.cos(weaponBobTime * 1.5)) * ampY - ampY * 0.5;
-                    weaponMeshGroup.rotation.z = Math.sin(weaponBobTime) * ampRotZ;
-                } else {
-                    // 静止時（呼吸揺れ）: サイン波を用いてゆったりと微細な呼吸の揺れを表現
-                    weaponBobTime += 0.035;
-                    weaponMeshGroup.position.x = Math.sin(weaponBobTime * 0.5) * 0.003;
-                    weaponMeshGroup.position.y = Math.sin(weaponBobTime) * 0.006;
-                    weaponMeshGroup.rotation.z = Math.sin(weaponBobTime * 0.25) * 0.002;
-                }
-            }
-
-            if (move.length() > 0) {
+            if (isMoving) {
                 const camRot = camera.rotation.y;
                 const combinedMove = new THREE.Vector3(
                     move.x * Math.cos(camRot) + move.z * Math.sin(camRot), 0,
@@ -3801,18 +3773,78 @@
                 PLAYER.isGrounded = true;
             }
 
+            // --- 武器の「構え位置と角度」＆「手ブレ・歩行ボビング」アニメーションの統合 ---
+            if (weaponMeshGroup && STATE.currentSlotIndex !== 4) {
+                const hand = STATE.dominantHand || 'right';
+                const handMult = hand === 'right' ? 1 : -1;
+
+                // FPS視点としての自然なデフォルト位置と角度（画面外側から中央を自然に狙う）
+                const baseX = 0.45 * handMult;
+                const baseY = -0.38;
+                const baseZ = -0.7;
+
+                const baseRotX = -0.05;
+                const baseRotY = -0.18 * handMult;
+                const baseRotZ = 0.05 * handMult;
+
+                let bobX = 0;
+                let bobY = 0;
+                let bobRotX = 0;
+                let bobRotY = 0;
+                let bobRotZ = 0;
+
+                const time = Date.now() * 0.001;
+
+                if (isMoving) {
+                    // 移動時：少し早いサイン・コサイン波（リズミカルな歩行揺れ・ボビング）
+                    const bobSpeed = isDashing ? 14 : 8;
+                    const bobAmpX = isDashing ? 0.04 : 0.02;
+                    const bobAmpY = isDashing ? 0.03 : 0.015;
+
+                    bobX = Math.sin(time * bobSpeed) * bobAmpX;
+                    // 歩行時に接地する感覚をコサインの絶対値で表現
+                    bobY = Math.abs(Math.cos(time * bobSpeed)) * bobAmpY - (bobAmpY / 2);
+
+                    bobRotX = Math.sin(time * bobSpeed) * (isDashing ? 0.04 : 0.02);
+                    bobRotY = Math.cos(time * bobSpeed * 0.5) * (isDashing ? 0.05 : 0.025);
+                    bobRotZ = Math.sin(time * bobSpeed) * (isDashing ? 0.06 : 0.03);
+                } else {
+                    // 静止時：呼吸によるゆったりとした微細な揺れ
+                    const breathSpeed = 1.8;
+                    bobY = Math.sin(time * breathSpeed) * 0.006;
+                    bobX = Math.cos(time * breathSpeed * 0.5) * 0.003;
+                    
+                    bobRotX = Math.sin(time * breathSpeed) * 0.004;
+                    bobRotY = Math.cos(time * breathSpeed * 0.5) * 0.003;
+                }
+
+                // 揺れ成分を初期姿勢にマージして更新
+                weaponMeshGroup.position.set(baseX + bobX, baseY + bobY, baseZ);
+                weaponMeshGroup.rotation.set(baseRotX + bobRotX, baseRotY + bobRotY, baseRotZ + bobRotZ);
+
+                // 焙烙弾（スロット3）の導火線火花明滅
+                if (STATE.currentSlotIndex === 3) {
+                    weaponMeshGroup.traverse(child => {
+                        if (child.userData && child.userData.isSpark) {
+                            const scaleVal = 0.8 + Math.random() * 0.4;
+                            child.scale.set(scaleVal, scaleVal, scaleVal);
+                        }
+                    });
+                }
+            }
+
             // スロット別の連続射撃判定
             if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
                 const now = Date.now();
                 const slot = STATE.currentSlotIndex;
                 if (slot === 0 && now - PLAYER.lastShot > 100) { 
-                    shoot(); // 1.速射 (100ms)
+                    shoot(); 
                 } else if (slot === 1 && now - PLAYER.lastShot > 1200) { 
-                    shoot(); // 2.重撃 (1200ms)
+                    shoot(); 
                 } else if (slot === 2 && now - PLAYER.lastShot > 500) { 
-                    shoot(); // 3.狙撃チャージ開始 (最低連射間隔500ms)
+                    shoot(); 
                 } else if (slot === 3 && now - PLAYER.lastShot > 1000) { 
-                    shoot(); // 4.焙烙射出 (1000ms)
+                    shoot(); 
                 }
             }
 
@@ -3847,10 +3879,10 @@
 
             for (let i = STATE.enemies.length - 1; i >= 0; i--) {
                 const en = STATE.enemies[i];
+                
                 en.update(camera.position, STATE.enemies);
                 
-                // en.takeHit()や焙烙の爆風ダメージで体力が尽きた敵を安全に一括スイープ処理
-                if (en.hp <= 0) {
+                if (en.isDead || en.hp <= 0) {
                     if (!STATE.isPractice) {
                         STATE.score += (en.type === '王' ? 10000 : 200);
                     }
@@ -3866,13 +3898,11 @@
                     continue;
                 }
 
-                // 射出された通常の弾丸との衝突判定
                 for (let j = STATE.bullets.length - 1; j >= 0; j--) {
                     const b = STATE.bullets[j];
                     if (!b.alive) continue;
-                    
-                    // 焙烙弾は接触ではなく着地で爆発するため判定をスキップ
                     if (b.isHouroku) continue;
+                    if (en.isDead) continue;
 
                     const dx = b.mesh.position.x - en.mesh.position.x;
                     const dz = b.mesh.position.z - en.mesh.position.z;
@@ -3880,7 +3910,10 @@
 
                     if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
                         flashCrosshair();
-                        en.takeHit(b.damage); 
+                        const killed = en.takeHit(b.damage); 
+                        if (killed) {
+                            en.isDead = true;
+                        }
                         b.destroy();
                         STATE.bullets.splice(j, 1);
                         break;
