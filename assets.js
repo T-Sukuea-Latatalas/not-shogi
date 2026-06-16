@@ -5,16 +5,22 @@ import { COLORS, PIECE_NAMES } from './constants.js';
 /**
  * ジオメトリの属性を position, normal, uv のみにクリーンアップし、
  * mergeGeometries 時の属性競合やグループのエラーを防ぐヘルパー関数。
+ * インデックス付きと非インデックス付きの不整合を避けるため、toNonIndexed() で統一します。
  */
 function prepareGeometry(geometry) {
+    // 1. すべてのジオメトリを非インデックス形式に統一
+    const nonIndexedGeom = geometry.toNonIndexed();
+    geometry.dispose(); // 元のジオメトリをメモリから解放
+
+    // 2. 必要な属性以外を削除
     const validKeys = ['position', 'normal', 'uv'];
-    for (const key in geometry.attributes) {
+    for (const key in nonIndexedGeom.attributes) {
         if (!validKeys.includes(key)) {
-            geometry.deleteAttribute(key);
+            nonIndexedGeom.deleteAttribute(key);
         }
     }
-    geometry.clearGroups();
-    return geometry;
+    nonIndexedGeom.clearGroups();
+    return nonIndexedGeom;
 }
 
 /**
@@ -66,6 +72,9 @@ function adjustScaleAndAlignment(geometry, targetHeight) {
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
+
+    // マテリアル配列が正しく適用されるよう、全体をカバーする単一のグループを追加
+    geometry.addGroup(0, geometry.getAttribute('position').count, 0);
 }
 
 /**
