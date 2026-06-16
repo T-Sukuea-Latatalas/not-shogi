@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
-import { COLORS } from './constants.js'; // 💡 抜け落ちていたこのインポートを追加しました
+import { COLORS, PIECE_NAMES } from './constants.js';
 
 /**
  * ジオメトリの属性を position, normal, uv のみにクリーンアップし、
