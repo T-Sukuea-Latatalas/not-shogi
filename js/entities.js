@@ -86,11 +86,10 @@ export class Enemy {
 
         if (chessTypes.includes(type)) {
             this.mats = AssetFactory.getChessMaterials(type);
-            // チェス駒専用の立体BufferGeometryを動的生成して適用
             geom = getChessGeometry(type);
         } else {
             this.mats = AssetFactory.getMaterials(type);
-            geom = AssetFactory.pieceGeom; // 将棋の五角形駒
+            geom = AssetFactory.pieceGeom; 
         }
         
         this.mesh = new THREE.Mesh(geom, this.mats);
