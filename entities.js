@@ -194,6 +194,7 @@ export class Enemy {
         this.knightTargetY = 0;
         this.knightTargetX = 0;
         this.knightTargetZ = 0;
+        this.lastKnightJumpTime = 0; // ナイトの押しつぶし攻撃クールダウン用
 
         this.bishopLastTeleport = Date.now();
         this.bishopTeleporting = false;
@@ -349,8 +350,12 @@ export class Enemy {
                 // 2. ナイトの挙動における例外・初期値チェックと安定化
                 if (this.knightState === 0) {
                     this.mesh.position.y = gy;
+                    // 地上をプレイヤーに向かって通常速度で歩く
                     this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
-                    if (xzDist < 20.0) {
+                    
+                    // クールダウン（5.5秒）を挟んでから、範囲内にプレイヤーがいれば大ジャンプを開始
+                    const knightCooldown = 5500;
+                    if (xzDist < 20.0 && (Date.now() - this.lastKnightJumpTime > knightCooldown)) {
                         this.knightState = 1;
                         this.knightTargetY = gy + 10.0 + Math.random() * 2.0; 
                     }
@@ -389,6 +394,7 @@ export class Enemy {
                     if (this.mesh.position.y <= gy) {
                         this.mesh.position.y = gy;
                         this.knightState = 0; 
+                        this.lastKnightJumpTime = Date.now(); // 着地した時刻を記録しクールダウンを開始
                         
                         const distToLanding = this.mesh.position.distanceTo(new THREE.Vector3(pPos.x, gy, pPos.z));
                         if (distToLanding < 4.0) {
@@ -419,23 +425,39 @@ export class Enemy {
             case 'ビショップ':
             case 'B':
                 if (!this.bishopTeleporting) {
+                    // 通常移動
                     this.mesh.position.add(dir.clone().multiplyScalar(this.speed));
-                    if (Date.now() - this.bishopLastTeleport > 3500) {
+                    // テレポート頻度を短縮（1.8秒ごとに判定）
+                    const teleportInterval = 1800;
+                    if (Date.now() - this.bishopLastTeleport > teleportInterval) {
                         this.bishopTeleporting = true;
                         this.bishopTeleportStep = 0; 
                     }
                 } else {
                     if (this.bishopTeleportStep === 0) {
-                        this.bishopOpacity -= 0.12;
+                        // 高速フェードアウト
+                        this.bishopOpacity -= 0.25;
                         if (this.mats) {
                             this.mats.forEach(m => { if (m) { m.transparent = true; m.opacity = Math.max(0, this.bishopOpacity); } });
                         }
                         if (this.bishopOpacity <= 0) {
-                            this.mesh.position.add(dir.clone().multiplyScalar(8.0));
+                            // プレイヤーの周囲（半径 4 〜 8 ユニット）のランダムな位置を決定
+                            const angleWarp = Math.random() * Math.PI * 2;
+                            const distWarp = 4.0 + Math.random() * 4.0;
+                            const targetWarpX = pPos.x + Math.cos(angleWarp) * distWarp;
+                            const targetWarpZ = pPos.z + Math.sin(angleWarp) * distWarp;
+
+                            // BOARD_SIZEに基づき、ステージ外に飛び出さないようクランプ
+                            const limit = boardSz / 2 - 2.0;
+                            this.mesh.position.x = Math.max(-limit, Math.min(limit, targetWarpX));
+                            this.mesh.position.z = Math.max(-limit, Math.min(limit, targetWarpZ));
+                            this.mesh.position.y = gy;
+
                             this.bishopTeleportStep = 1; 
                         }
                     } else {
-                        this.bishopOpacity += 0.12;
+                        // 高速フェードイン
+                        this.bishopOpacity += 0.25;
                         if (this.mats) {
                             this.mats.forEach(m => { if (m) { m.opacity = Math.min(1.0, this.bishopOpacity); } });
                         }
