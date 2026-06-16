@@ -27,13 +27,10 @@ export const STATE = {
     // ステージ情報管理
     stages: [],
     currentStageIndex: 0,
-    // --- 追加：スタン状態を管理するタイマーを初期定義 ---
     playerStunTime: 0,
-    // --- 追加：循環参照を防ぐためのダメージ関数バインド用 ---
     takeDamage: null
 };
 
-// (他の定数はそのまま)
 export const PIECE_NAMES = {
     '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
 };
