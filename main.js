@@ -33,6 +33,74 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2 }
 ];
 
+/**
+ * 3Dアセット生成失敗時にフォールバックとして配置されるダミーエネミークラス
+ */
+class DummyEnemy {
+    constructor(type, scale = 1.0) {
+        this.type = type;
+        this.hp = Math.max(10, scale * 10);
+        this.maxHp = this.hp;
+
+        // 読み込み失敗が分かりやすいような、赤半透明の立方体を生成
+        const geometry = new THREE.BoxGeometry(scale * 1.5, scale * 3.0, scale * 1.5);
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0xff3333, 
+            roughness: 0.5, 
+            transparent: true, 
+            opacity: 0.85 
+        });
+        
+        this.mesh = new THREE.Mesh(geometry, material);
+        
+        // 盤面内のランダムな位置に配置
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 15 + Math.random() * 35;
+        this.mesh.position.set(
+            Math.cos(angle) * radius,
+            GROUND_Y,
+            Math.sin(angle) * radius
+        );
+        
+        this.mesh.castShadow = true;
+        this.mesh.receiveShadow = true;
+
+        if (STATE.scene) {
+            STATE.scene.add(this.mesh);
+        }
+    }
+
+    update(playerPosition, otherEnemies) {
+        if (!this.mesh || !playerPosition) return;
+
+        // 最低限の処理としてプレイヤーへゆっくり接近させる
+        const dir = new THREE.Vector3().subVectors(playerPosition, this.mesh.position);
+        dir.y = 0;
+        const distance = dir.length();
+        if (distance > 1.5) {
+            dir.normalize();
+            this.mesh.position.addScaledVector(dir, 0.05); // 緩やかな移動速度
+            this.mesh.lookAt(playerPosition.x, this.mesh.position.y, playerPosition.z);
+        }
+    }
+
+    takeHit(power) {
+        this.hp -= power;
+
+        // 被弾時に一瞬白く点滅させる視覚フィードバック
+        if (this.mesh && this.mesh.material) {
+            const mat = this.mesh.material;
+            const originalColor = mat.color.getHex();
+            mat.color.setHex(0xffffff);
+            setTimeout(() => {
+                if (mat) mat.color.setHex(originalColor);
+            }, 100);
+        }
+
+        return this.hp <= 0;
+    }
+}
+
 // 💡 プロミスのフリーズを回避し、最速でイベントとThree.jsを駆動させる起動設定
 function start() {
     initGame();
@@ -248,14 +316,19 @@ function initGame() {
     STATE.scene.add(STATE.boardGroup);
 
     window.addEventListener('resize', () => {
-        STATE.camera.aspect = window.innerWidth / window.innerHeight;
-        STATE.camera.updateProjectionMatrix();
-        STATE.renderer.setSize(window.innerWidth, window.innerHeight);
+        if (STATE.camera && STATE.renderer) {
+            STATE.camera.aspect = window.innerWidth / window.innerHeight;
+            STATE.camera.updateProjectionMatrix();
+            STATE.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
     });
 
     if (isTouchDevice) {
         document.body.classList.add('touch-device');
-        document.getElementById('shop-close-desc').innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
+        const shopCloseDesc = document.getElementById('shop-close-desc');
+        if (shopCloseDesc) {
+            shopCloseDesc.innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
+        }
     }
 
     updateUI(); 
@@ -263,10 +336,18 @@ function initGame() {
 }
 
 function cleanUp3DObjects() {
-    STATE.enemies.forEach(en => { if(en.mesh) STATE.scene.remove(en.mesh); });
-    STATE.bullets.forEach(b => { if(b.mesh) STATE.scene.remove(b.mesh); });
-    STATE.enemyBullets.forEach(eb => { if(eb.mesh) STATE.scene.remove(eb.mesh); });
-    STATE.items.forEach(it => { if(it.mesh) STATE.scene.remove(it.mesh); });
+    if (STATE.enemies) {
+        STATE.enemies.forEach(en => { if(en && en.mesh && STATE.scene) STATE.scene.remove(en.mesh); });
+    }
+    if (STATE.bullets) {
+        STATE.bullets.forEach(b => { if(b && b.mesh && STATE.scene) STATE.scene.remove(b.mesh); });
+    }
+    if (STATE.enemyBullets) {
+        STATE.enemyBullets.forEach(eb => { if(eb && eb.mesh && STATE.scene) STATE.scene.remove(eb.mesh); });
+    }
+    if (STATE.items) {
+        STATE.items.forEach(it => { if(it && it.mesh && STATE.scene) STATE.scene.remove(it.mesh); });
+    }
 
     STATE.enemies = [];
     STATE.bullets = [];
@@ -279,12 +360,19 @@ function cleanUpStage() {
     STATE.isPaused = false;
     STATE.isGameOver = false;
     
-    document.getElementById('ui-layer').style.display = 'none';
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'none';
+    
     cleanUp3DObjects();
 
-    document.getElementById('stage-clear-menu').style.display = 'none';
-    document.getElementById('pause-menu').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
+    const stageClearMenu = document.getElementById('stage-clear-menu');
+    if (stageClearMenu) stageClearMenu.style.display = 'none';
+
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.style.display = 'none';
+
+    const gameOverMenu = document.getElementById('game-over');
+    if (gameOverMenu) gameOverMenu.style.display = 'none';
 
     if (!isTouchDevice && document.pointerLockElement) {
         document.exitPointerLock();
@@ -314,7 +402,7 @@ function saveClearedStage(stageNum) {
 
 function getUnlockedPieces() {
     const unlocked = new Set();
-    if (STATE.stages.length === 0) return unlocked;
+    if (!STATE.stages || STATE.stages.length === 0) return unlocked;
 
     const cleared = getClearedStages();
     
@@ -343,6 +431,7 @@ function getUnlockedPieces() {
 }
 
 function filterEmptyStages(stageList) {
+    if (!stageList) return [];
     const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
     return stageList.filter(stg => {
         let totalEnemies = 0;
@@ -377,8 +466,10 @@ async function loadStages() {
         if (STATE.stages.length === 0) throw new Error("Parsed empty stages");
 
         buildStageSelectUI();
-        document.getElementById('loading-screen').style.display = 'none';
-        document.getElementById('stage-select-menu').style.display = 'flex';
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.style.display = 'none';
+        const stageSelectMenu = document.getElementById('stage-select-menu');
+        if (stageSelectMenu) stageSelectMenu.style.display = 'flex';
     } catch (e) {
         console.warn("スプレッドシートのロードに失敗しました。ローカル予備ステージデータを使用します。");
         startWithFallback();
@@ -388,8 +479,10 @@ async function loadStages() {
 function startWithFallback() {
     STATE.stages = filterEmptyStages(JSON.parse(JSON.stringify(EXTENDED_FALLBACK_STAGES)));
     buildStageSelectUI();
-    document.getElementById('loading-screen').style.display = 'none';
-    document.getElementById('stage-select-menu').style.display = 'flex';
+    const loadingScreen = document.getElementById('loading-screen');
+    if (loadingScreen) loadingScreen.style.display = 'none';
+    const stageSelectMenu = document.getElementById('stage-select-menu');
+    if (stageSelectMenu) stageSelectMenu.style.display = 'flex';
 }
 
 function parseCSV(text) {
@@ -444,6 +537,7 @@ function parseCSV(text) {
 
 function buildStageSelectUI() {
     const container = document.getElementById('stage-list');
+    if (!container) return;
     container.innerHTML = '';
     const cleared = getClearedStages();
     
@@ -474,10 +568,15 @@ function buildStageSelectUI() {
 
 function selectStage(index) {
     STATE.currentStageIndex = index;
-    document.getElementById('stage-select-menu').style.display = 'none';
-    document.getElementById('stage-clear-menu').style.display = 'none';
-    document.getElementById('pause-menu').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
+    const stageSelectMenu = document.getElementById('stage-select-menu');
+    if (stageSelectMenu) stageSelectMenu.style.display = 'none';
+    const stageClearMenu = document.getElementById('stage-clear-menu');
+    if (stageClearMenu) stageClearMenu.style.display = 'none';
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.style.display = 'none';
+    const gameOverMenu = document.getElementById('game-over');
+    if (gameOverMenu) gameOverMenu.style.display = 'none';
+
     STATE.isPaused = false;
     STATE.isGameOver = false;
     startStage(STATE.stages[index]);
@@ -485,6 +584,7 @@ function selectStage(index) {
 
 function buildPracticeMenu() {
     const container = document.getElementById('practice-piece-list');
+    if (!container) return;
     container.innerHTML = '';
     const unlockedPieces = getUnlockedPieces();
 
@@ -503,7 +603,8 @@ function buildPracticeMenu() {
 }
 
 function startPracticeStage(type) {
-    document.getElementById('practice-select-menu').style.display = 'none';
+    const practiceSelectMenu = document.getElementById('practice-select-menu');
+    if (practiceSelectMenu) practiceSelectMenu.style.display = 'none';
     STATE.isPractice = true;
     
     const fullName = PIECE_NAMES[type] || type;
@@ -536,18 +637,21 @@ function startStage(stageData) {
     PLAYER.vy = 0;
     PLAYER.isGrounded = true;
     PLAYER.isShooting = false;
-    STATE.camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
-    STATE.camera.rotation.set(0, 0, 0);
+    if (STATE.camera) {
+        STATE.camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
+        STATE.camera.rotation.set(0, 0, 0);
+    }
     
     STATE.playerStunTime = 0;
 
     const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五"];
+    const waveValEl = document.getElementById('wave-val');
     if (stageData.stage === 0) {
-        document.getElementById('wave-val').innerText = "修";
+        if (waveValEl) waveValEl.innerText = "修";
         showMsg(stageData.name);
     } else {
         const waveName = kanjis[stageData.stage] || stageData.stage;
-        document.getElementById('wave-val').innerText = waveName;
+        if (waveValEl) waveValEl.innerText = waveName;
         showMsg("第" + waveName + "局：" + stageData.name);
     }
 
@@ -558,7 +662,16 @@ function startStage(stageData) {
         const count = stageData[type] || 0;
         for (let i = 0; i < count; i++) {
             const enemyScale = (type === '王' || type === 'キング' || type === 'K') ? scale * 2.5 : scale;
-            STATE.enemies.push(new Enemy(type, enemyScale));
+            try {
+                STATE.enemies.push(new Enemy(type, enemyScale));
+            } catch (error) {
+                console.error(`エネミー [${type}] の生成に失敗しました。ダミーで代用します:`, error);
+                try {
+                    STATE.enemies.push(new DummyEnemy(type, enemyScale));
+                } catch (fallbackError) {
+                    console.error("フォールバック用ダミーエネミーの生成にも失敗しました:", fallbackError);
+                }
+            }
         }
     });
 
@@ -566,7 +679,8 @@ function startStage(stageData) {
     STATE.stageActive = true;
     STATE.isPaused = false;
     
-    document.getElementById('ui-layer').style.display = 'block';
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'block';
     updateUI();
 
     if (!isTouchDevice) {
@@ -575,7 +689,8 @@ function startStage(stageData) {
 }
 
 function restartStage() {
-    document.getElementById('game-over').style.display = 'none';
+    const gameOverMenu = document.getElementById('game-over');
+    if (gameOverMenu) gameOverMenu.style.display = 'none';
     STATE.isGameOver = false;
     STATE.isPaused = false;
     if (STATE.isPractice) {
@@ -585,10 +700,10 @@ function restartStage() {
     }
 }
 
-// (以下の処理は元の main.js と同様)
 function showStageClear() {
     STATE.stageActive = false;
-    document.getElementById('ui-layer').style.display = 'none';
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'none';
     
     if (!isTouchDevice && document.pointerLockElement) {
         document.exitPointerLock();
@@ -601,23 +716,24 @@ function showStageClear() {
         }
     }
 
-    document.getElementById('stage-clear-menu').style.display = 'flex';
+    const stageClearMenu = document.getElementById('stage-clear-menu');
+    if (stageClearMenu) stageClearMenu.style.display = 'flex';
     
     const nextBtn = document.getElementById('btn-next-stage');
     const clearPracticeBtn = document.getElementById('btn-clear-practice');
     const clearBackBtn = document.getElementById('btn-clear-back');
 
     if (STATE.isPractice) {
-        nextBtn.style.display = 'none';
-        clearBackBtn.style.display = 'none';
-        clearPracticeBtn.style.display = 'inline-block';
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (clearBackBtn) clearBackBtn.style.display = 'none';
+        if (clearPracticeBtn) clearPracticeBtn.style.display = 'inline-block';
     } else {
-        clearPracticeBtn.style.display = 'none';
-        clearBackBtn.style.display = 'inline-block';
+        if (clearPracticeBtn) clearPracticeBtn.style.display = 'none';
+        if (clearBackBtn) clearBackBtn.style.display = 'inline-block';
         if (STATE.currentStageIndex + 1 < STATE.stages.length) {
-            nextBtn.style.display = 'inline-block';
+            if (nextBtn) nextBtn.style.display = 'inline-block';
         } else {
-            nextBtn.style.display = 'none'; 
+            if (nextBtn) nextBtn.style.display = 'none'; 
         }
     }
 }
@@ -641,10 +757,12 @@ function pauseGame() {
     if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused) return;
     if (STATE.shopOpen) {
         STATE.shopOpen = false;
-        document.getElementById('shop-menu').style.display = 'none';
+        const shopMenu = document.getElementById('shop-menu');
+        if (shopMenu) shopMenu.style.display = 'none';
     }
     STATE.isPaused = true;
-    document.getElementById('pause-menu').style.display = 'flex';
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.style.display = 'flex';
     if (!isTouchDevice && document.pointerLockElement) {
         document.exitPointerLock();
     }
@@ -653,11 +771,11 @@ function pauseGame() {
     const pauseBack = document.getElementById('btn-pause-back');
     const pausePractice = document.getElementById('btn-pause-practice');
     if (STATE.isPractice) {
-        pauseBack.style.display = 'none';
-        pausePractice.style.display = 'inline-block';
+        if (pauseBack) pauseBack.style.display = 'none';
+        if (pausePractice) pausePractice.style.display = 'inline-block';
     } else {
-        pauseBack.style.display = 'inline-block';
-        pausePractice.style.display = 'none';
+        if (pauseBack) pauseBack.style.display = 'inline-block';
+        if (pausePractice) pausePractice.style.display = 'none';
     }
     updateUI();
 }
@@ -665,7 +783,8 @@ function pauseGame() {
 function resumeGame() {
     if (!STATE.stageActive || STATE.isGameOver || !STATE.isPaused) return;
     STATE.isPaused = false;
-    document.getElementById('pause-menu').style.display = 'none';
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.style.display = 'none';
     if (!isTouchDevice) {
         document.body.requestPointerLock();
     }
@@ -675,41 +794,53 @@ function resumeGame() {
 function quitStageToSelect() {
     cleanUpStage();
     if (STATE.isPractice) {
-        document.getElementById('practice-select-menu').style.display = 'flex';
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'flex';
         buildPracticeMenu();
     } else {
-        document.getElementById('stage-select-menu').style.display = 'flex';
+        const stageSelectMenu = document.getElementById('stage-select-menu');
+        if (stageSelectMenu) stageSelectMenu.style.display = 'flex';
         buildStageSelectUI();
     }
 }
 
 function shoot() {
+    if (!STATE.camera) return;
     const dir = new THREE.Vector3(); 
     STATE.camera.getWorldDirection(dir);
-    STATE.bullets.push(new Projectile(STATE.camera.position.clone().add(new THREE.Vector3(0,-0.5,0)), dir, false, 3.0, 0.25));
+    if (STATE.bullets) {
+        STATE.bullets.push(new Projectile(STATE.camera.position.clone().add(new THREE.Vector3(0,-0.5,0)), dir, false, 3.0, 0.25));
+    }
     PLAYER.lastShot = Date.now();
 }
 
 export function takeDamage(amt) {
     if (STATE.isGameOver) return;
     PLAYER.hp -= amt;
-    document.getElementById('damage-vignette').classList.add('hit');
-    setTimeout(() => document.getElementById('damage-vignette').classList.remove('hit'), 200);
+    const vignette = document.getElementById('damage-vignette');
+    if (vignette) {
+        vignette.classList.add('hit');
+        setTimeout(() => {
+            if (vignette) vignette.classList.remove('hit');
+        }, 200);
+    }
     updateUI();
     if (PLAYER.hp <= 0) {
         STATE.isGameOver = true;
         STATE.stageActive = false;
-        document.getElementById('ui-layer').style.display = 'none';
-        document.getElementById('game-over').style.display = 'flex';
+        const uiLayer = document.getElementById('ui-layer');
+        if (uiLayer) uiLayer.style.display = 'none';
+        const gameOverMenu = document.getElementById('game-over');
+        if (gameOverMenu) gameOverMenu.style.display = 'flex';
         
         const goBack = document.getElementById('btn-go-back');
         const goPractice = document.getElementById('btn-go-practice');
         if (STATE.isPractice) {
-            goBack.style.display = 'none';
-            goPractice.style.display = 'inline-block';
+            if (goBack) goBack.style.display = 'none';
+            if (goPractice) goPractice.style.display = 'inline-block';
         } else {
-            goBack.style.display = 'inline-block';
-            goPractice.style.display = 'none';
+            if (goBack) goBack.style.display = 'inline-block';
+            if (goPractice) goPractice.style.display = 'none';
         }
 
         if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock();
@@ -718,8 +849,12 @@ export function takeDamage(amt) {
 
 function flashCrosshair() {
     const ch = document.getElementById('crosshair');
-    ch.classList.add('hit-mark');
-    setTimeout(() => ch.classList.remove('hit-mark'), 100);
+    if (ch) {
+        ch.classList.add('hit-mark');
+        setTimeout(() => {
+            if (ch) ch.classList.remove('hit-mark');
+        }, 100);
+    }
 }
 
 function upgrade(type) {
@@ -756,9 +891,18 @@ function updateShopHighlight() {
 }
 
 function updateUI() {
-    document.getElementById('hp-bar').style.width = Math.max(0, (PLAYER.hp/PLAYER.maxHp*100)) + "%";
-    document.getElementById('score-val').innerText = STATE.score;
-    document.getElementById('enemy-count').innerText = STATE.enemies.length;
+    const hpBar = document.getElementById('hp-bar');
+    if (hpBar) {
+        hpBar.style.width = Math.max(0, (PLAYER.hp/PLAYER.maxHp*100)) + "%";
+    }
+    const scoreVal = document.getElementById('score-val');
+    if (scoreVal) {
+        scoreVal.innerText = STATE.score;
+    }
+    const enemyCount = document.getElementById('enemy-count');
+    if (enemyCount) {
+        enemyCount.innerText = STATE.enemies ? STATE.enemies.length : 0;
+    }
     for(let k in UPGRADE_COSTS) {
         const costEl = document.getElementById('cost-'+k);
         if (costEl) costEl.innerText = UPGRADE_COSTS[k];
@@ -768,14 +912,26 @@ function updateUI() {
 
 function showMsg(txt) {
     const el = document.getElementById('msg-overlay');
-    el.innerText = txt; el.style.opacity = 1; el.style.transform = "scale(1)";
-    setTimeout(() => { el.style.opacity = 0; el.style.transform = "scale(1.5)"; }, 2000);
+    if (el) {
+        el.innerText = txt; 
+        el.style.opacity = 1; 
+        el.style.transform = "scale(1)";
+        setTimeout(() => { 
+            if (el) {
+                el.style.opacity = 0; 
+                el.style.transform = "scale(1.5)"; 
+            }
+        }, 2000);
+    }
 }
 
 function toggleShop() {
     if(!STATE.stageActive || STATE.isPaused) return; 
     STATE.shopOpen = !STATE.shopOpen;
-    document.getElementById('shop-menu').style.display = STATE.shopOpen ? 'block' : 'none';
+    const shopMenu = document.getElementById('shop-menu');
+    if (shopMenu) {
+        shopMenu.style.display = STATE.shopOpen ? 'block' : 'none';
+    }
     if(STATE.shopOpen) {
         PLAYER.isShooting = false;
         updateShopHighlight();
@@ -794,71 +950,101 @@ function activateDebugMode() {
 }
 
 function setupEvents() {
-    document.getElementById('btn-campaign-start').addEventListener('click', () => {
-        document.getElementById('title-screen').style.display = 'none';
-        document.getElementById('loading-screen').style.display = 'flex';
+    const addSafeEvent = (id, eventName, handler) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener(eventName, handler);
+    };
+
+    addSafeEvent('btn-campaign-start', 'click', () => {
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'none';
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) loadingScreen.style.display = 'flex';
         STATE.isPractice = false;
         loadStages();
     });
-    document.getElementById('btn-practice-start').addEventListener('click', () => {
-        document.getElementById('title-screen').style.display = 'none';
-        document.getElementById('practice-select-menu').style.display = 'flex';
+
+    addSafeEvent('btn-practice-start', 'click', () => {
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'none';
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'flex';
         STATE.isPractice = true;
-        if (STATE.stages.length === 0) {
+        if (!STATE.stages || STATE.stages.length === 0) {
             STATE.stages = filterEmptyStages(JSON.parse(JSON.stringify(EXTENDED_FALLBACK_STAGES)));
         }
         buildPracticeMenu();
     });
 
-    document.getElementById('btn-fallback-start').addEventListener('click', startWithFallback);
+    addSafeEvent('btn-fallback-start', 'click', startWithFallback);
 
-    document.getElementById('btn-back-to-title').addEventListener('click', () => {
-        document.getElementById('stage-select-menu').style.display = 'none';
-        document.getElementById('title-screen').style.display = 'flex';
-    });
-    document.getElementById('btn-back-to-title-practice').addEventListener('click', () => {
-        document.getElementById('practice-select-menu').style.display = 'none';
-        document.getElementById('title-screen').style.display = 'flex';
+    addSafeEvent('btn-back-to-title', 'click', () => {
+        const stageSelectMenu = document.getElementById('stage-select-menu');
+        if (stageSelectMenu) stageSelectMenu.style.display = 'none';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
     });
 
-    document.getElementById('btn-next-stage').addEventListener('click', nextStage);
-    document.getElementById('btn-clear-practice').addEventListener('click', () => {
+    addSafeEvent('btn-back-to-title-practice', 'click', () => {
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'none';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
+    });
+
+    addSafeEvent('btn-next-stage', 'click', nextStage);
+
+    addSafeEvent('btn-clear-practice', 'click', () => {
         cleanUpStage();
-        document.getElementById('practice-select-menu').style.display = 'flex';
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'flex';
         buildPracticeMenu();
     });
-    document.getElementById('btn-clear-back').addEventListener('click', quitStageToSelect);
-    document.getElementById('btn-clear-title').addEventListener('click', () => {
+
+    addSafeEvent('btn-clear-back', 'click', quitStageToSelect);
+
+    addSafeEvent('btn-clear-title', 'click', () => {
         cleanUpStage();
-        document.getElementById('title-screen').style.display = 'flex';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
     });
 
-    document.getElementById('btn-resume-game').addEventListener('click', resumeGame);
-    document.getElementById('btn-pause-practice').addEventListener('click', () => {
+    addSafeEvent('btn-resume-game', 'click', resumeGame);
+
+    addSafeEvent('btn-pause-practice', 'click', () => {
         cleanUpStage();
-        document.getElementById('practice-select-menu').style.display = 'flex';
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'flex';
         buildPracticeMenu();
-    });
-    document.getElementById('btn-pause-back').addEventListener('click', quitStageToSelect);
-    document.getElementById('btn-pause-title').addEventListener('click', () => {
-        cleanUpStage();
-        document.getElementById('title-screen').style.display = 'flex';
     });
 
-    document.getElementById('btn-restart-stage').addEventListener('click', restartStage);
-    document.getElementById('btn-go-practice').addEventListener('click', () => {
+    addSafeEvent('btn-pause-back', 'click', quitStageToSelect);
+
+    addSafeEvent('btn-pause-title', 'click', () => {
         cleanUpStage();
-        document.getElementById('practice-select-menu').style.display = 'flex';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
+    });
+
+    addSafeEvent('btn-restart-stage', 'click', restartStage);
+
+    addSafeEvent('btn-go-practice', 'click', () => {
+        cleanUpStage();
+        const practiceSelectMenu = document.getElementById('practice-select-menu');
+        if (practiceSelectMenu) practiceSelectMenu.style.display = 'flex';
         buildPracticeMenu();
     });
-    document.getElementById('btn-go-back').addEventListener('click', quitStageToSelect);
-    document.getElementById('btn-go-title').addEventListener('click', () => {
+
+    addSafeEvent('btn-go-back', 'click', quitStageToSelect);
+
+    addSafeEvent('btn-go-title', 'click', () => {
         cleanUpStage();
-        document.getElementById('title-screen').style.display = 'flex';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
     });
 
     for (let i = 0; i < 4; i++) {
-        document.getElementById(`shop-item-${i}`).addEventListener('click', () => upgradeByIndex(i));
+        addSafeEvent(`shop-item-${i}`, 'click', () => upgradeByIndex(i));
     }
 
     window.addEventListener('keydown', e => {
@@ -895,20 +1081,23 @@ function setupEvents() {
 
     let clickCount = 0;
     let lastClickTime = 0;
-    document.getElementById('score-container').addEventListener('click', e => {
-        e.stopPropagation();
-        const now = Date.now();
-        if (now - lastClickTime > 2000) clickCount = 0;
-        clickCount++;
-        lastClickTime = now;
-        if (clickCount >= 5) {
-            activateDebugMode();
-            clickCount = 0;
-        }
-    });
+    const scoreContainer = document.getElementById('score-container');
+    if (scoreContainer) {
+        scoreContainer.addEventListener('click', e => {
+            e.stopPropagation();
+            const now = Date.now();
+            if (now - lastClickTime > 2000) clickCount = 0;
+            clickCount++;
+            lastClickTime = now;
+            if (clickCount >= 5) {
+                activateDebugMode();
+                clickCount = 0;
+            }
+        });
+    }
 
     window.addEventListener('mousemove', e => {
-        if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused) {
+        if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused && STATE.camera) {
             STATE.camera.rotation.y -= e.movementX * 0.0025;
             STATE.camera.rotation.x = Math.max(-1.4, Math.min(1.4, STATE.camera.rotation.x - e.movementY * 0.0025));
         }
@@ -998,7 +1187,7 @@ function setupTouchControls() {
         if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            if (touch.identifier === lookTouchId) {
+            if (touch.identifier === lookTouchId && STATE.camera) {
                 const dx = touch.clientX - lastLookX;
                 const dy = touch.clientY - lastLookY;
                 
@@ -1029,104 +1218,112 @@ function setupTouchControls() {
     let joystickCenter = { x: 0, y: 0 };
     const maxRadius = 40; 
 
-    joystickOuter.addEventListener('touchstart', e => {
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
-        e.preventDefault();
-        const touch = e.changedTouches[0];
-        joystickTouchId = touch.identifier;
-        
-        const rect = joystickOuter.getBoundingClientRect();
-        joystickCenter.x = rect.left + rect.width / 2;
-        joystickCenter.y = rect.top + rect.height / 2;
-    }, { passive: false });
+    if (joystickOuter && joystickKnob) {
+        joystickOuter.addEventListener('touchstart', e => {
+            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+            e.preventDefault();
+            const touch = e.changedTouches[0];
+            joystickTouchId = touch.identifier;
+            
+            const rect = joystickOuter.getBoundingClientRect();
+            joystickCenter.x = rect.left + rect.width / 2;
+            joystickCenter.y = rect.top + rect.height / 2;
+        }, { passive: false });
 
-    window.addEventListener('touchmove', e => {
-        if (joystickTouchId === null) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            if (touch.identifier === joystickTouchId) {
-                e.preventDefault();
-                let dx = touch.clientX - joystickCenter.x;
-                let dy = touch.clientY - joystickCenter.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance > maxRadius) {
-                    dx = (dx / distance) * maxRadius;
-                    dy = (dy / distance) * maxRadius;
+        window.addEventListener('touchmove', e => {
+            if (joystickTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joystickTouchId) {
+                    e.preventDefault();
+                    let dx = touch.clientX - joystickCenter.x;
+                    let dy = touch.clientY - joystickCenter.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > maxRadius) {
+                        dx = (dx / distance) * maxRadius;
+                        dy = (dy / distance) * maxRadius;
+                    }
+                    
+                    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                    joystickVector.x = dx / maxRadius;
+                    joystickVector.y = dy / maxRadius;
                 }
-                
-                joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-                joystickVector.x = dx / maxRadius;
-                joystickVector.y = dy / maxRadius;
             }
-        }
-    }, { passive: false });
+        }, { passive: false });
 
-    const endJoystick = e => {
-        if (joystickTouchId === null) return;
-        for (let i = 0; i < e.changedTouches.length; i++) {
-            const touch = e.changedTouches[i];
-            if (touch.identifier === joystickTouchId) {
-                joystickTouchId = null;
-                joystickKnob.style.transform = 'translate(0px, 0px)';
-                joystickVector.x = 0;
-                joystickVector.y = 0;
+        const endJoystick = e => {
+            if (joystickTouchId === null) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joystickTouchId) {
+                    joystickTouchId = null;
+                    joystickKnob.style.transform = 'translate(0px, 0px)';
+                    joystickVector.x = 0;
+                    joystickVector.y = 0;
+                }
             }
-        }
+        };
+        window.addEventListener('touchend', endJoystick);
+        window.addEventListener('touchcancel', endJoystick);
+    }
+
+    const addSafeTouchStart = (id, handler) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('touchstart', handler, { passive: false });
     };
-    window.addEventListener('touchend', endJoystick);
-    window.addEventListener('touchcancel', endJoystick);
 
-    const btnShoot = document.getElementById('btn-shoot');
-    const btnJump = document.getElementById('btn-jump');
-    const btnDash = document.getElementById('btn-dash');
-    const btnShop = document.getElementById('btn-shop');
-    const btnPause = document.getElementById('btn-pause');
-
-    btnShoot.addEventListener('touchstart', e => {
+    addSafeTouchStart('btn-shoot', e => {
         e.preventDefault();
         if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0) return;
         PLAYER.isShooting = true;
-    }, { passive: false });
-    btnShoot.addEventListener('touchend', e => {
-        e.preventDefault();
-        PLAYER.isShooting = false;
-    }, { passive: false });
-    btnShoot.addEventListener('touchcancel', e => {
-        PLAYER.isShooting = false;
     });
+    
+    const btnShoot = document.getElementById('btn-shoot');
+    if (btnShoot) {
+        btnShoot.addEventListener('touchend', e => {
+            e.preventDefault();
+            PLAYER.isShooting = false;
+        }, { passive: false });
+        btnShoot.addEventListener('touchcancel', e => {
+            PLAYER.isShooting = false;
+        });
+    }
 
-    btnJump.addEventListener('touchstart', e => {
+    addSafeTouchStart('btn-jump', e => {
         e.preventDefault();
         if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0) return;
         if (PLAYER.isGrounded) {
             PLAYER.vy = JUMP_FORCE;
             PLAYER.isGrounded = false;
         }
-    }, { passive: false });
+    });
 
-    btnDash.addEventListener('touchstart', e => {
-        e.preventDefault();
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
-        STATE.dashActive = !STATE.dashActive;
-        if (STATE.dashActive) {
-            btnDash.classList.add('active');
-        } else {
-            btnDash.classList.remove('active');
-        }
-    }, { passive: false });
+    const btnDash = document.getElementById('btn-dash');
+    if (btnDash) {
+        btnDash.addEventListener('touchstart', e => {
+            e.preventDefault();
+            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+            STATE.dashActive = !STATE.dashActive;
+            if (STATE.dashActive) {
+                btnDash.classList.add('active');
+            } else {
+                btnDash.classList.remove('active');
+            }
+        }, { passive: false });
+    }
 
-    btnShop.addEventListener('touchstart', e => {
+    addSafeTouchStart('btn-shop', e => {
         e.preventDefault();
         if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
         toggleShop();
-    }, { passive: false });
+    });
 
-    btnPause.addEventListener('touchstart', e => {
+    addSafeTouchStart('btn-pause', e => {
         e.preventDefault();
         if (STATE.isGameOver || !STATE.stageActive) return;
         togglePause();
-    }, { passive: false });
+    });
 }
 
 function animate() {
@@ -1135,7 +1332,8 @@ function animate() {
 
     if (STATE.clouds) {
         STATE.clouds.forEach(cloud => {
-            cloud.position.x += cloud.userData.speed;
+            if (!cloud) return;
+            cloud.position.x += cloud.userData?.speed ?? 0.05;
             if (cloud.position.x > 320) {
                 cloud.position.x = -320;
                 cloud.position.z = (Math.random() - 0.5) * 500;
@@ -1144,7 +1342,7 @@ function animate() {
         });
     }
 
-    if (!STATE.stageActive) {
+    if (!STATE.stageActive && STATE.camera) {
         const time = Date.now() * 0.00015;
         const radius = 65;
         const height = 38;
@@ -1154,7 +1352,10 @@ function animate() {
         STATE.camera.lookAt(0, GROUND_Y, 0);
     }
 
-    STATE.renderer.render(STATE.scene, STATE.camera);
+    // レンダラーとカメラ、シーンが存在する場合のみレンダリングを実行
+    if (STATE.renderer && STATE.scene && STATE.camera) {
+        STATE.renderer.render(STATE.scene, STATE.camera);
+    }
 
     if (!STATE.stageActive) return;
     if (STATE.isPaused) return;
@@ -1177,8 +1378,8 @@ function animate() {
         }
     }
 
-    if (move.length() > 0) {
-        const camRot = STATE.camera.rotation.y;
+    if (move.length() > 0 && STATE.camera) {
+        const camRot = STATE.camera.rotation?.y ?? 0;
         const combinedMove = new THREE.Vector3(
             move.x * Math.cos(camRot) + move.z * Math.sin(camRot), 0,
             -move.x * Math.sin(camRot) + move.z * Math.cos(camRot)
@@ -1189,86 +1390,155 @@ function animate() {
         STATE.camera.position.add(combinedMove.normalize().multiplyScalar(currentSpeed));
     }
 
-    const pLimit = BOARD_SIZE / 2 - 2.0;
-    STATE.camera.position.x = Math.max(-pLimit, Math.min(pLimit, STATE.camera.position.x));
-    STATE.camera.position.z = Math.max(-pLimit, Math.min(pLimit, STATE.camera.position.z));
+    if (STATE.camera) {
+        const pLimit = BOARD_SIZE / 2 - 2.0;
+        STATE.camera.position.x = Math.max(-pLimit, Math.min(pLimit, STATE.camera.position.x));
+        STATE.camera.position.z = Math.max(-pLimit, Math.min(pLimit, STATE.camera.position.z));
 
-    PLAYER.vy += GRAVITY;
-    STATE.camera.position.y += PLAYER.vy;
-    if (STATE.camera.position.y <= GROUND_Y + EYE_HEIGHT) {
-        STATE.camera.position.y = GROUND_Y + EYE_HEIGHT;
-        PLAYER.vy = 0;
-        PLAYER.isGrounded = true;
+        PLAYER.vy += GRAVITY;
+        STATE.camera.position.y += PLAYER.vy;
+        if (STATE.camera.position.y <= GROUND_Y + EYE_HEIGHT) {
+            STATE.camera.position.y = GROUND_Y + EYE_HEIGHT;
+            PLAYER.vy = 0;
+            PLAYER.isGrounded = true;
+        }
     }
 
     if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
-        if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) shoot();
-    }
-
-    for (let i = STATE.bullets.length - 1; i >= 0; i--) {
-        const b = STATE.bullets[i];
-        b.update();
-        if (!b.alive) STATE.bullets.splice(i, 1);
-    }
-    for (let i = STATE.enemyBullets.length - 1; i >= 0; i--) {
-        const eb = STATE.enemyBullets[i];
-        eb.update();
-        if (!eb.alive) STATE.enemyBullets.splice(i, 1);
-    }
-
-    for (let i = STATE.items.length - 1; i >= 0; i--) {
-        const item = STATE.items[i];
-        item.update();
-        if (!item.alive) {
-            STATE.items.splice(i, 1);
-            continue;
-        }
-
-        const playerGroundPos = new THREE.Vector3(STATE.camera.position.x, GROUND_Y, STATE.camera.position.z);
-        const dist = item.mesh.position.distanceTo(playerGroundPos);
-        if (dist < 2.5) {
-            PLAYER.hp = Math.min(PLAYER.maxHp, PLAYER.hp + 25);
-            updateUI();
-            item.destroy();
-            STATE.items.splice(i, 1);
-        }
-    }
-
-    for (let i = STATE.enemies.length - 1; i >= 0; i--) {
-        const en = STATE.enemies[i];
-        en.update(STATE.camera.position, STATE.enemies);
-        
-        for (let j = STATE.bullets.length - 1; j >= 0; j--) {
-            const b = STATE.bullets[j];
-            if (!b.alive) continue;
-            
-            const dx = b.mesh.position.x - en.mesh.position.x;
-            const dz = b.mesh.position.z - en.mesh.position.z;
-            const dy = b.mesh.position.y - (en.mesh.position.y + 1.2);
-
-            if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
-                flashCrosshair();
-                if (en.takeHit(PLAYER.power)) {
-                    const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K');
-                    STATE.score += (isBoss ? 10000 : 200);
-                    
-                    const dropProb = isBoss ? 1.0 : 0.3;
-                    if (Math.random() < dropProb) {
-                        STATE.items.push(new Item(en.mesh.position));
-                    }
-
-                    STATE.scene.remove(en.mesh);
-                    STATE.enemies.splice(i, 1);
-                    updateUI();
-                }
-                b.destroy();
-                STATE.bullets.splice(j, 1);
-                break;
+        if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) {
+            try {
+                shoot();
+            } catch (err) {
+                console.error("射撃時にエラーが発生しました:", err);
             }
         }
     }
 
-    if (STATE.enemies.length === 0 && !STATE.shopOpen) {
+    if (STATE.bullets) {
+        for (let i = STATE.bullets.length - 1; i >= 0; i--) {
+            const b = STATE.bullets[i];
+            if (!b) continue;
+            try {
+                b.update();
+            } catch (err) {
+                console.error("弾の更新中にエラーが発生しました:", err);
+                b.alive = false;
+            }
+            if (!b.alive) STATE.bullets.splice(i, 1);
+        }
+    }
+
+    if (STATE.enemyBullets) {
+        for (let i = STATE.enemyBullets.length - 1; i >= 0; i--) {
+            const eb = STATE.enemyBullets[i];
+            if (!eb) continue;
+            try {
+                eb.update();
+            } catch (err) {
+                console.error("敵の弾の更新中にエラーが発生しました:", err);
+                eb.alive = false;
+            }
+            if (!eb.alive) STATE.enemyBullets.splice(i, 1);
+        }
+    }
+
+    if (STATE.items) {
+        for (let i = STATE.items.length - 1; i >= 0; i--) {
+            const item = STATE.items[i];
+            if (!item) continue;
+            try {
+                item.update();
+            } catch (err) {
+                console.error("アイテムの更新中にエラーが発生しました:", err);
+                item.alive = false;
+            }
+            if (!item.alive) {
+                STATE.items.splice(i, 1);
+                continue;
+            }
+
+            if (STATE.camera && item.mesh) {
+                const playerGroundPos = new THREE.Vector3(STATE.camera.position.x, GROUND_Y, STATE.camera.position.z);
+                const dist = item.mesh.position.distanceTo(playerGroundPos);
+                if (dist < 2.5) {
+                    PLAYER.hp = Math.min(PLAYER.maxHp, PLAYER.hp + 25);
+                    updateUI();
+                    try {
+                        item.destroy();
+                    } catch (err) {
+                        console.error("アイテム破壊時にエラーが発生しました:", err);
+                    }
+                    STATE.items.splice(i, 1);
+                }
+            }
+        }
+    }
+
+    if (STATE.enemies && STATE.camera) {
+        for (let i = STATE.enemies.length - 1; i >= 0; i--) {
+            const en = STATE.enemies[i];
+            if (!en) continue;
+
+            try {
+                en.update(STATE.camera.position, STATE.enemies);
+            } catch (err) {
+                console.error("敵の挙動更新中にエラーが発生しました:", err);
+            }
+            
+            if (STATE.bullets) {
+                for (let j = STATE.bullets.length - 1; j >= 0; j--) {
+                    const b = STATE.bullets[j];
+                    if (!b || !b.alive || !b.mesh || !en.mesh) continue;
+                    
+                    const dx = b.mesh.position.x - en.mesh.position.x;
+                    const dz = b.mesh.position.z - en.mesh.position.z;
+                    const dy = b.mesh.position.y - (en.mesh.position.y + 1.2);
+
+                    if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
+                        flashCrosshair();
+                        
+                        let isKilled = false;
+                        try {
+                            isKilled = en.takeHit(PLAYER.power);
+                        } catch (err) {
+                            console.error("被弾処理中にエラーが発生しました。強制撃破とみなします:", err);
+                            isKilled = true;
+                        }
+
+                        if (isKilled) {
+                            const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K');
+                            STATE.score += (isBoss ? 10000 : 200);
+                            
+                            const dropProb = isBoss ? 1.0 : 0.3;
+                            if (Math.random() < dropProb && STATE.items) {
+                                try {
+                                    STATE.items.push(new Item(en.mesh.position));
+                                } catch (err) {
+                                    console.error("アイテム生成中にエラーが発生しました:", err);
+                                }
+                            }
+
+                            if (STATE.scene && en.mesh) {
+                                STATE.scene.remove(en.mesh);
+                            }
+                            STATE.enemies.splice(i, 1);
+                            updateUI();
+                        }
+                        
+                        try {
+                            b.destroy();
+                        } catch (err) {
+                            console.error("弾の破壊処理中にエラーが発生しました:", err);
+                        }
+                        STATE.bullets.splice(j, 1);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (STATE.enemies && STATE.enemies.length === 0 && !STATE.shopOpen) {
         showStageClear();
     }
 }
