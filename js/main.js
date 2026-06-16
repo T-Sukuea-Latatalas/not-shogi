@@ -33,10 +33,17 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2 }
 ];
 
-document.fonts.ready.then(() => {
+// 💡 プロミスのフリーズを回避し、最速でイベントとThree.jsを駆動させる起動設定
+function start() {
     initGame();
     setupEvents();
-});
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    start();
+} else {
+    window.addEventListener('DOMContentLoaded', start);
+}
 
 function initGame() {
     const hour = new Date().getHours();
@@ -57,7 +64,6 @@ function initGame() {
         celestialColor = 0xe0e8ff; celestialPos = new THREE.Vector3(80, 180, -80); celestialRadius = 11;
     }
 
-    // 循環参照対策 & スタンタイマー初期化
     STATE.takeDamage = takeDamage;
     STATE.playerStunTime = 0;
 
@@ -579,6 +585,7 @@ function restartStage() {
     }
 }
 
+// (以下の処理は元の main.js と同様)
 function showStageClear() {
     STATE.stageActive = false;
     document.getElementById('ui-layer').style.display = 'none';
