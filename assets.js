@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { COLORS, PIECE_NAMES } from './constants.js';
 
 /**
@@ -12,9 +12,10 @@ function prepareGeometry(geometry) {
     const nonIndexedGeom = geometry.toNonIndexed();
     geometry.dispose(); // 元のジオメトリをメモリから解放
 
-    // 2. 必要な属性以外を削除
+    // 2. 必要な属性以外を削除（安全にループを処理するためキーを配列に変換）
     const validKeys = ['position', 'normal', 'uv'];
-    for (const key in nonIndexedGeom.attributes) {
+    const attributeKeys = Object.keys(nonIndexedGeom.attributes);
+    for (const key of attributeKeys) {
         if (!validKeys.includes(key)) {
             nonIndexedGeom.deleteAttribute(key);
         }
@@ -73,8 +74,10 @@ function adjustScaleAndAlignment(geometry, targetHeight) {
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
 
-    // マテリアル配列が正しく適用されるよう、全体をカバーする単一のグループを追加
-    geometry.addGroup(0, geometry.getAttribute('position').count, 0);
+    // グループ情報が存在しない場合のみ、マテリアル配列が正しく適用されるよう全体をカバーする単一のグループを追加
+    if (!geometry.groups || geometry.groups.length === 0) {
+        geometry.addGroup(0, geometry.getAttribute('position').count, 0);
+    }
 }
 
 /**
@@ -96,7 +99,7 @@ export function getChessGeometry(type) {
         head.translate(0, 1.3, 0);
         geometries.push(head);
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 1.8); 
         return merged;
 
@@ -121,7 +124,7 @@ export function getChessGeometry(type) {
             geometries.push(box);
         }
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 2.1);
         return merged;
 
@@ -158,7 +161,7 @@ export function getChessGeometry(type) {
         head.translate(0, 0.6 + 0.75, 0); 
         geometries.push(head);
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 2.1);
         return merged;
 
@@ -189,7 +192,7 @@ export function getChessGeometry(type) {
         topSphere.translate(0, 2.05, 0);
         geometries.push(topSphere);
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 2.2);
         return merged;
 
@@ -220,7 +223,7 @@ export function getChessGeometry(type) {
         topSphere.translate(0, 2.05, 0);
         geometries.push(topSphere);
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 2.4);
         return merged;
 
@@ -250,7 +253,7 @@ export function getChessGeometry(type) {
         horizontal.translate(0, crossY + 0.1, 0);
         geometries.push(horizontal);
 
-        const merged = BufferGeometryUtils.mergeGeometries(geometries);
+        const merged = mergeGeometries(geometries);
         adjustScaleAndAlignment(merged, 2.5); 
         return merged;
     }
