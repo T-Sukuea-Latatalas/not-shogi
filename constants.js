@@ -31,8 +31,11 @@ export const STATE = {
     takeDamage: null
 };
 
+// チェスの駒とヨット（Yacht）の定義を追加
 export const PIECE_NAMES = {
-    '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将'
+    '歩': '歩兵', '香': '香車', '桂': '桂馬', '銀': '銀将', '金': '金将', '角': '角行', '飛': '飛車', '王': '玉将',
+    'ポーン': '歩兵（兵）', 'ナイト': '騎士', 'ビショップ': '僧正', 'ルーク': '城塞', 'クイーン': '王妃', 'キング': '国王',
+    'ヨット': '支配者ヨット', 'Yacht': '支配者ヨット'
 };
 
 export const GRAVITY = -0.015;
@@ -59,12 +62,17 @@ export const SPREADSHEET_ID = 'https://docs.google.com/spreadsheets/d/1n4711vrRL
 export const SHEET_GID = '0';
 
 export const FALLBACK_STAGES = [
-    { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0 },
+    { stage: 1, name: "初陣・歩兵の壁", 歩: 5, 香: 0, 桂: 0, 銀: 0, 金: 0,角: 0, 飛: 0, 王: 0 },
     { stage: 2, name: "香車の一閃", 歩: 3, 香: 2, 桂: 0, 銀: 0, 金: 0, 角: 0, 飛: 0, 王: 0 },
     { stage: 3, name: "桂馬の奇襲", 歩: 4, 香: 0, 桂: 3, 銀: 1, 金: 0, 角: 0, 飛: 0, 王: 0 },
     { stage: 4, name: "飛角の盤上", 歩: 2, 香: 1, 桂: 0, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 0 },
     { stage: 5, name: "玉将の間", 歩: 6, 香: 2, 桂: 2, 銀: 2, 金: 2, 角: 1, 飛: 1, 王: 1 }
 ];
 
-export const PRACTICE_PIECES = ['歩', '香', '桂', '銀', '金', '角', '飛', '王'];
+// 修練（練習）モード用にチェスの駒とヨットを末尾に追加
+export const PRACTICE_PIECES = [
+    '歩', '香', '桂', '銀', '金', '角', '飛', '王',
+    'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'
+];
+
 export const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
