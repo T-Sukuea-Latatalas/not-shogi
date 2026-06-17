@@ -1,31 +1,3 @@
-ユーザーがゲームを離れても「ステータスの強化状態」「所持銭（スコア）」「ステージのクリア状況」がブラウザの `localStorage` に自動的に保存・復元されるように、提示する `main.js` を修正してください。
-
-### 満たすべきセーブ・ロードの仕様
-1. **保存（Save）するデータ**
-   - 所持銭（スコア）: `STATE.score`
-   - プレイヤーのステータス: `PLAYER.maxHp`, `PLAYER.speed`, `PLAYER.power`, `PLAYER.fireRate`
-   - 各ステータスのアップグレードコスト: `UPGRADE_COSTS`（`power`, `rate`, `speed`, `hp` の各キーの値）
-   - ※ステージクリア状況（`non_shogi_progress`）は既存の `saveClearedStage` / `getClearedStages` で保存・ロードされているため、そのロジックはそのまま維持してください。
-
-2. **読み込み（Load）するタイミング**
-   - `initGame()` の処理の開始直後に、`localStorage` から上記すべてのデータを読み込み、`STATE.score`、`PLAYER`、`UPGRADE_COSTS` に反映します。
-   - データのロード時、プレイヤーの現在HP（`PLAYER.hp`）は `PLAYER.maxHp` と同じ（全回復状態）に設定してください。
-
-3. **保存（Save）するタイミング**
-   - ステータスを強化（アップグレード）した瞬間（`upgrade` 関数内）
-   - 敵を倒してスコア（銭）が増えた瞬間（`animate()` 内で敵を撃破した処理の後）
-   - ステージをクリアした瞬間（`showStageClear()` 内）
-   - デバッグモードを有効化した瞬間（`activateDebugMode()` 内）
-
-4. **エラーハンドリングと安全対策**
-   - `localStorage` の読み書きは `try-catch` ブロックで囲み、プライベートブラウズ等でストレージが使えない環境でもゲームがクラッシュしないようにしてください。
-   - `main.js` の他の機能（3D描画、ポーズ機能、ヨット登場演出など）の動作を一切妨げないように記述してください。
-
----
-
-### 修正対象のソースコード（main.js）
-
-```javascript
 import * as THREE from 'three';
 import { 
     COLORS, STATE, PIECE_NAMES, GRAVITY, JUMP_FORCE, GROUND_Y, EYE_HEIGHT, 
@@ -69,6 +41,7 @@ class DummyEnemy {
         this.type = type;
         this.hp = Math.max(10, scale * 10);
         this.maxHp = this.hp;
+        this.alive = true;
 
         const geometry = new THREE.BoxGeometry(scale * 1.5, scale * 3.0, scale * 1.5);
         const material = new THREE.MeshStandardMaterial({ 
@@ -118,7 +91,81 @@ class DummyEnemy {
                 if (mat) mat.color.setHex(originalColor);
             }, 100);
         }
-        return this.hp <= 0;
+        if (this.hp <= 0) {
+            this.alive = false;
+            return true;
+        }
+        return false;
+    }
+
+    destroy() {
+        this.alive = false;
+        if (this.mesh) {
+            if (STATE.scene) {
+                STATE.scene.remove(this.mesh);
+            }
+            if (this.mesh.geometry) {
+                this.mesh.geometry.dispose();
+            }
+            if (this.mesh.material) {
+                if (Array.isArray(this.mesh.material)) {
+                    this.mesh.material.forEach(mat => mat.dispose());
+                } else {
+                    this.mesh.material.dispose();
+                }
+            }
+        }
+    }
+}
+
+// セーブデータをロードする処理
+function loadPlayerData() {
+    try {
+        const json = localStorage.getItem('non_shogi_player_data');
+        if (json) {
+            const data = JSON.parse(json);
+            if (data.score !== undefined) STATE.score = data.score;
+            if (data.player) {
+                if (data.player.maxHp !== undefined) PLAYER.maxHp = data.player.maxHp;
+                if (data.player.speed !== undefined) PLAYER.speed = data.player.speed;
+                if (data.player.power !== undefined) PLAYER.power = data.player.power;
+                if (data.player.fireRate !== undefined) PLAYER.fireRate = data.player.fireRate;
+            }
+            if (data.upgradeCosts) {
+                if (data.upgradeCosts.power !== undefined) UPGRADE_COSTS.power = data.upgradeCosts.power;
+                if (data.upgradeCosts.rate !== undefined) UPGRADE_COSTS.rate = data.upgradeCosts.rate;
+                if (data.upgradeCosts.speed !== undefined) UPGRADE_COSTS.speed = data.upgradeCosts.speed;
+                if (data.upgradeCosts.hp !== undefined) UPGRADE_COSTS.hp = data.upgradeCosts.hp;
+            }
+        }
+    } catch (e) {
+        console.error("セーブデータの読み込みに失敗しました:", e);
+    }
+    // ロード時にプレイヤーの現在HPを最大HPと同じ（全回復）に設定
+    PLAYER.hp = PLAYER.maxHp;
+}
+
+// セーブデータを保存する処理
+function savePlayerData() {
+    try {
+        const data = {
+            score: STATE.score,
+            player: {
+                maxHp: PLAYER.maxHp,
+                speed: PLAYER.speed,
+                power: PLAYER.power,
+                fireRate: PLAYER.fireRate
+            },
+            upgradeCosts: {
+                power: UPGRADE_COSTS.power,
+                rate: UPGRADE_COSTS.rate,
+                speed: UPGRADE_COSTS.speed,
+                hp: UPGRADE_COSTS.hp
+            }
+        };
+        localStorage.setItem('non_shogi_player_data', JSON.stringify(data));
+    } catch (e) {
+        console.error("セーブデータの保存に失敗しました:", e);
     }
 }
 
@@ -144,6 +191,9 @@ function initGame() {
     const celestialColor = 0xfffbe0;
     const celestialPos = new THREE.Vector3(40, 200, 40);
     const celestialRadius = 15;
+
+    // ゲーム初期化処理の開始直後にセーブデータを読み込み
+    loadPlayerData();
 
     STATE.takeDamage = takeDamage;
     STATE.playerStunTime = 0;
@@ -357,7 +407,19 @@ function initGame() {
 
 function cleanUp3DObjects() {
     if (STATE.enemies) {
-        STATE.enemies.forEach(en => { if(en && en.mesh && STATE.scene) STATE.scene.remove(en.mesh); });
+        STATE.enemies.forEach(en => { 
+            if (en) {
+                if (typeof en.destroy === 'function') {
+                    try {
+                        en.destroy();
+                    } catch (e) {
+                        console.error("エネミーオブジェクトの破棄中にエラーが発生しました:", e);
+                    }
+                } else if (en.mesh && STATE.scene) {
+                    STATE.scene.remove(en.mesh); 
+                }
+            }
+        });
     }
     if (STATE.bullets) {
         STATE.bullets.forEach(b => { if(b && b.mesh && STATE.scene) STATE.scene.remove(b.mesh); });
@@ -867,6 +929,9 @@ function showStageClear() {
             if (nextBtn) nextBtn.style.display = 'none'; 
         }
     }
+
+    // ステージクリアした瞬間にセーブ
+    savePlayerData();
 }
 
 function nextStage() {
@@ -997,6 +1062,9 @@ function upgrade(type) {
     if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
     UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
     updateUI();
+
+    // ステータスを強化した瞬間にセーブ
+    savePlayerData();
 }
 
 function upgradeByIndex(index) {
@@ -1078,6 +1146,9 @@ function activateDebugMode() {
     STATE.score = 999999;
     showMsg("神変不可思議（全能力極限解放）");
     updateUI();
+
+    // デバッグモードを有効化した瞬間にセーブ
+    savePlayerData();
 }
 
 function setupEvents() {
@@ -1669,8 +1740,20 @@ function animate() {
                             if (STATE.scene && en.mesh) {
                                 STATE.scene.remove(en.mesh);
                             }
+
+                            if (typeof en.destroy === 'function') {
+                                try {
+                                    en.destroy();
+                                } catch (err) {
+                                    console.error("エネミーの解放に失敗しました:", err);
+                                }
+                            }
+
                             STATE.enemies.splice(i, 1);
                             updateUI();
+
+                            // 撃破によりスコアが増加した瞬間にセーブ
+                            savePlayerData();
                         }
                         
                         try {
