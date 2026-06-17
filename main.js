@@ -593,6 +593,7 @@ function selectStage(index) {
     const gameOverMenu = document.getElementById('game-over');
     if (gameOverMenu) gameOverMenu.style.display = 'none';
 
+    STATE.currentStageIndex = index; // 選択されたステージのインデックスを管理する代入処理を追加
     STATE.isPaused = false;
     STATE.isGameOver = false;
     startStage(STATE.stages[index]);
@@ -760,8 +761,8 @@ function startStage(stageData) {
             try {
                 const enemy = new Enemy(type, enemyScale);
                 STATE.enemies.push(enemy);
-                // ボス出現（王、キング、ヨット）を演出対象として検知
-                if (type === 'ヨット' || type === 'Yacht' || type === '王' || type === 'キング' || type === 'K') {
+                // 登場演出を「ヨット」および「Yacht」のみに限定
+                if (type === 'ヨット' || type === 'Yacht') {
                     bossEnemy = enemy;
                 }
             } catch (error) {
@@ -1629,7 +1630,8 @@ function animate() {
                         }
 
                         if (isKilled) {
-                            const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K' || en.type === 'ヨット' || en.type === 'Yacht');
+                            // ボス判定（高スコアおよびアイテム確定ドロップ）の対象をヨットのみに限定
+                            const isBoss = (en.type === 'ヨット' || en.type === 'Yacht');
                             STATE.score += (isBoss ? 10000 : 200);
                             
                             const dropProb = isBoss ? 1.0 : 0.3;
