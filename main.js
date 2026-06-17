@@ -106,23 +106,16 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 }
 
 function initGame() {
-    const hour = new Date().getHours();
-    let skyColor, fogColor, sunColor, sunIntensity, ambientColor, ambientIntensity;
-    let celestialColor, celestialPos, celestialRadius;
-
-    if (hour >= 5 && hour < 9) { 
-        skyColor = 0xe5cca9; fogColor = 0xe5cca9; sunColor = 0xfff2e0; sunIntensity = 1.0; ambientColor = 0xffeadd; ambientIntensity = 0.7;
-        celestialColor = 0xffaa66; celestialPos = new THREE.Vector3(120, 150, 50); celestialRadius = 14;
-    } else if (hour >= 9 && hour < 16) { 
-        skyColor = 0xd2dad2; fogColor = 0xd2dad2; sunColor = 0xfffcf3; sunIntensity = 1.3; ambientColor = 0xffffff; ambientIntensity = 0.8;
-        celestialColor = 0xfffbe0; celestialPos = new THREE.Vector3(40, 200, 40); celestialRadius = 15;
-    } else if (hour >= 16 && hour < 19) { 
-        skyColor = 0xb84a39; fogColor = 0xb84a39; sunColor = 0xffaa44; sunIntensity = 1.1; ambientColor = 0xffebd5; ambientIntensity = 0.6;
-        celestialColor = 0xee3311; celestialPos = new THREE.Vector3(-120, 140, -30); celestialRadius = 16;
-    } else { 
-        skyColor = 0x0c0d1a; fogColor = 0x0c0d1a; sunColor = 0x90a0ff; sunIntensity = 0.7; ambientColor = 0x161a2b; ambientIntensity = 0.45;
-        celestialColor = 0xe0e8ff; celestialPos = new THREE.Vector3(80, 180, -80); celestialRadius = 11;
-    }
+    // 常に明るくて見えやすい「昼間」のパラメータで固定
+    const skyColor = 0xd2dad2;
+    const fogColor = 0xd2dad2;
+    const sunColor = 0xfffcf3;
+    const sunIntensity = 1.3;
+    const ambientColor = 0xffffff;
+    const ambientIntensity = 0.8;
+    const celestialColor = 0xfffbe0;
+    const celestialPos = new THREE.Vector3(40, 200, 40);
+    const celestialRadius = 15;
 
     STATE.takeDamage = takeDamage;
     STATE.playerStunTime = 0;
@@ -173,8 +166,10 @@ function initGame() {
     for (let i = 0; i < cloudCount; i++) {
         const cloudGroup = new THREE.Group();
         const partCount = 3 + Math.floor(Math.random() * 4);
-        const cloudColor = (hour >= 19 || hour < 5) ? 0x3d435e : 0xffffff;
-        const cloudOpacity = (hour >= 19 || hour < 5) ? 0.4 : 0.55;
+        
+        // 昼用の設定で固定
+        const cloudColor = 0xffffff;
+        const cloudOpacity = 0.55;
 
         for (let j = 0; j < partCount; j++) {
             const rx = 5 + Math.random() * 8;
