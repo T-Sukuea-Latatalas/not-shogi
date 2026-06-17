@@ -1,3 +1,31 @@
+ユーザーがゲームを離れても「ステータスの強化状態」「所持銭（スコア）」「ステージのクリア状況」がブラウザの `localStorage` に自動的に保存・復元されるように、提示する `main.js` を修正してください。
+
+### 満たすべきセーブ・ロードの仕様
+1. **保存（Save）するデータ**
+   - 所持銭（スコア）: `STATE.score`
+   - プレイヤーのステータス: `PLAYER.maxHp`, `PLAYER.speed`, `PLAYER.power`, `PLAYER.fireRate`
+   - 各ステータスのアップグレードコスト: `UPGRADE_COSTS`（`power`, `rate`, `speed`, `hp` の各キーの値）
+   - ※ステージクリア状況（`non_shogi_progress`）は既存の `saveClearedStage` / `getClearedStages` で保存・ロードされているため、そのロジックはそのまま維持してください。
+
+2. **読み込み（Load）するタイミング**
+   - `initGame()` の処理の開始直後に、`localStorage` から上記すべてのデータを読み込み、`STATE.score`、`PLAYER`、`UPGRADE_COSTS` に反映します。
+   - データのロード時、プレイヤーの現在HP（`PLAYER.hp`）は `PLAYER.maxHp` と同じ（全回復状態）に設定してください。
+
+3. **保存（Save）するタイミング**
+   - ステータスを強化（アップグレード）した瞬間（`upgrade` 関数内）
+   - 敵を倒してスコア（銭）が増えた瞬間（`animate()` 内で敵を撃破した処理の後）
+   - ステージをクリアした瞬間（`showStageClear()` 内）
+   - デバッグモードを有効化した瞬間（`activateDebugMode()` 内）
+
+4. **エラーハンドリングと安全対策**
+   - `localStorage` の読み書きは `try-catch` ブロックで囲み、プライベートブラウズ等でストレージが使えない環境でもゲームがクラッシュしないようにしてください。
+   - `main.js` の他の機能（3D描画、ポーズ機能、ヨット登場演出など）の動作を一切妨げないように記述してください。
+
+---
+
+### 修正対象のソースコード（main.js）
+
+```javascript
 import * as THREE from 'three';
 import { 
     COLORS, STATE, PIECE_NAMES, GRAVITY, JUMP_FORCE, GROUND_Y, EYE_HEIGHT, 
