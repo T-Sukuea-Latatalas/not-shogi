@@ -12,8 +12,8 @@ const keys = {};
 const debugKeys = ['d', 'e', 'b', 'u', 'g'];
 let debugIndex = 0;
 
-// 'ヨット' を修練の対象に加える
-const ALL_PRACTICE_PIECES = [...PRACTICE_PIECES, 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'];
+// すでに constants.js の PRACTICE_PIECES にヨットを含むすべての駒が定義されているため、そのまま使用します。
+const ALL_PRACTICE_PIECES = PRACTICE_PIECES;
 
 // フォールバックステージに「ヨット」ステージ（第16局、盤上最終決戦）を追加
 const EXTENDED_FALLBACK_STAGES = [
