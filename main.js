@@ -11,6 +11,7 @@ let selectedShopIndex = 0;
 const keys = {};
 const debugKeys = ['d', 'e', 'b', 'u', 'g'];
 let debugIndex = 0;
+let isDebugActive = false; // デバッグモード検知用フラグ
 
 const ALL_PRACTICE_PIECES = [...PRACTICE_PIECES, 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
 
@@ -32,6 +33,63 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 15, name: "覇王と皇帝", 歩: 4, 香: 2, 桂: 2, 銀: 4, 金: 4, 角: 3, 飛: 3, 王: 1, ポーン: 10, ナイト: 6, ビショップ: 4, ルーク: 4, クイーン: 2, キング: 1 },
     { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2 }
 ];
+
+/**
+ * ゲームの進行状況とステータスを LocalStorage に保存する
+ */
+function saveGame() {
+    if (isDebugActive) return;
+    try {
+        const gameData = {
+            score: STATE.score,
+            player: {
+                power: PLAYER.power,
+                fireRate: PLAYER.fireRate,
+                speed: PLAYER.speed,
+                maxHp: PLAYER.maxHp
+            },
+            upgradeCosts: { ...UPGRADE_COSTS }
+        };
+        localStorage.setItem('non_shogi_game_save', JSON.stringify(gameData));
+    } catch (e) {
+        console.error("ゲームデータの保存に失敗しました:", e);
+    }
+}
+
+/**
+ * ゲームの進行状況とステータスを LocalStorage から読み込んで復元する
+ */
+function loadGame() {
+    try {
+        const saved = localStorage.getItem('non_shogi_game_save');
+        if (saved) {
+            const gameData = JSON.parse(saved);
+            if (gameData) {
+                if (typeof gameData.score === 'number') {
+                    STATE.score = gameData.score;
+                }
+                if (gameData.player) {
+                    if (typeof gameData.player.power === 'number') PLAYER.power = gameData.player.power;
+                    if (typeof gameData.player.fireRate === 'number') PLAYER.fireRate = gameData.player.fireRate;
+                    if (typeof gameData.player.speed === 'number') PLAYER.speed = gameData.player.speed;
+                    if (typeof gameData.player.maxHp === 'number') {
+                        PLAYER.maxHp = gameData.player.maxHp;
+                        PLAYER.hp = PLAYER.maxHp;
+                    }
+                }
+                if (gameData.upgradeCosts) {
+                    for (const key in gameData.upgradeCosts) {
+                        if (Object.prototype.hasOwnProperty.call(gameData.upgradeCosts, key)) {
+                            UPGRADE_COSTS[key] = gameData.upgradeCosts[key];
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("ゲームデータの読み込みに失敗しました:", e);
+    }
+}
 
 /**
  * 3Dアセット生成失敗時にフォールバックとして配置されるダミーエネミークラス
@@ -331,7 +389,7 @@ function initGame() {
         }
     }
 
-    loadPlayerStats(); // 保存されているプレイヤー強化データを読み込む
+    loadGame(); // ゲーム開始前に LocalStorage からデータをロード
     updateUI(); 
     animate();
 }
@@ -398,50 +456,6 @@ function saveClearedStage(stageNum) {
         }
     } catch (e) {
         console.error("セーブデータの保存に失敗しました:", e);
-    }
-}
-
-function savePlayerStats() {
-    if (STATE.isDebug) return; // デバッグモードの極限状態は保存しない
-    try {
-        const stats = {
-            power: PLAYER.power,
-            fireRate: PLAYER.fireRate,
-            speed: PLAYER.speed,
-            maxHp: PLAYER.maxHp,
-            score: STATE.score,
-            upgradeCosts: UPGRADE_COSTS
-        };
-        localStorage.setItem('non_shogi_player_stats', JSON.stringify(stats));
-    } catch (e) {
-        console.error("プレイヤーデータのセーブに失敗しました:", e);
-    }
-}
-
-function loadPlayerStats() {
-    try {
-        const data = localStorage.getItem('non_shogi_player_stats');
-        if (!data) return;
-        const stats = JSON.parse(data);
-        if (stats) {
-            if (typeof stats.power === 'number') PLAYER.power = stats.power;
-            if (typeof stats.fireRate === 'number') PLAYER.fireRate = stats.fireRate;
-            if (typeof stats.speed === 'number') PLAYER.speed = stats.speed;
-            if (typeof stats.maxHp === 'number') {
-                PLAYER.maxHp = stats.maxHp;
-                PLAYER.hp = stats.maxHp; // 現在のHPを復元した最大HPで満タンにする
-            }
-            if (typeof stats.score === 'number') STATE.score = stats.score;
-            if (stats.upgradeCosts && typeof stats.upgradeCosts === 'object') {
-                for (const key in stats.upgradeCosts) {
-                    if (Object.prototype.hasOwnProperty.call(stats.upgradeCosts, key)) {
-                        UPGRADE_COSTS[key] = stats.upgradeCosts[key];
-                    }
-                }
-            }
-        }
-    } catch (e) {
-        console.error("プレイヤーデータのロードに失敗しました:", e);
     }
 }
 
@@ -761,7 +775,7 @@ function showStageClear() {
         }
     }
 
-    savePlayerStats(); // クリアして獲得した銭などを保存
+    saveGame(); // 敵を倒して増えた所持銭やステータスを保存
 
     const stageClearMenu = document.getElementById('stage-clear-menu');
     if (stageClearMenu) stageClearMenu.style.display = 'flex';
@@ -912,8 +926,8 @@ function upgrade(type) {
     if (type === 'speed') PLAYER.speed += 0.06;
     if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
     UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
-    savePlayerStats(); // 強化処理の直後にセーブを実行
     updateUI();
+    saveGame(); // 強化完了時にセーブ
 }
 
 function upgradeByIndex(index) {
@@ -987,7 +1001,7 @@ function toggleShop() {
 }
 
 function activateDebugMode() {
-    STATE.isDebug = true; // デバッグフラグを有効にし、セーブ機能による上書きを防ぐ
+    isDebugActive = true; // デバッグフラグを有効にして以降のセーブをスキップ
     PLAYER.maxHp = 9999;
     PLAYER.hp = 9999;
     PLAYER.power = 100;
