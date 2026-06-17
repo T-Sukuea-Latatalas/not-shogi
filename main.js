@@ -562,11 +562,8 @@ function buildStageSelectUI() {
         const btn = document.createElement('button');
         btn.className = 'stage-btn';
         
-        // ステージにボス（王, キング, K, ヨット）が存在するかチェック
-        const hasBoss = (stg['王'] && stg['王'] > 0) || 
-                        (stg['キング'] && stg['キング'] > 0) || 
-                        (stg['K'] && stg['K'] > 0) ||
-                        (stg['ヨット'] && stg['ヨット'] > 0) ||
+        // ステージにボス（ヨット）が存在するかチェック
+        const hasBoss = (stg['ヨット'] && stg['ヨット'] > 0) ||
                         (stg['Yacht'] && stg['Yacht'] > 0);
                         
         if (hasBoss) {
