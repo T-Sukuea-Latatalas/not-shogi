@@ -11,10 +11,11 @@ let selectedShopIndex = 0;
 const keys = {};
 const debugKeys = ['d', 'e', 'b', 'u', 'g'];
 let debugIndex = 0;
-let isDebugActive = false; // デバッグモード検知用フラグ
 
-const ALL_PRACTICE_PIECES = [...PRACTICE_PIECES, 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
+// 'ヨット' を修練の対象に加える
+const ALL_PRACTICE_PIECES = [...PRACTICE_PIECES, 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'];
 
+// フォールバックステージに「ヨット」ステージ（第16局、盤上最終決戦）を追加
 const EXTENDED_FALLBACK_STAGES = [
     { stage: 1, name: "第1局", 歩: 3 },
     { stage: 2, name: "第2局", 歩: 5, 香: 1 },
@@ -31,76 +32,16 @@ const EXTENDED_FALLBACK_STAGES = [
     { stage: 13, name: "天空の支配者", 銀: 2, 金: 2, 角: 2, 飛: 2, ポーン: 2, ナイト: 2, ビショップ: 2, クイーン: 2 },
     { stage: 14, name: "漆黒の盤上遊戯", 歩: 5, 香: 2, 桂: 2, 銀: 3, 金: 3, 角: 2, 飛: 2, ポーン: 8, ナイト: 4, ビショップ: 4, ルーク: 2, クイーン: 1 },
     { stage: 15, name: "覇王と皇帝", 歩: 4, 香: 2, 桂: 2, 銀: 4, 金: 4, 角: 3, 飛: 3, 王: 1, ポーン: 10, ナイト: 6, ビショップ: 4, ルーク: 4, クイーン: 2, キング: 1 },
-    { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2 }
+    { stage: 16, name: "盤上の支配者・ヨット", 歩: 2, ポーン: 2, ヨット: 1 },
+    { stage: 50, name: "盤上最終決戦", 歩: 15, 香: 8, 桂: 8, 銀: 8, 金: 8, 角: 5, 飛: 5, 王: 1, ポーン: 20, ナイト: 10, ビショップ: 10, ルーク: 8, クイーン: 4, キング: 2, ヨット: 1 }
 ];
 
-/**
- * ゲームの進行状況とステータスを LocalStorage に保存する
- */
-function saveGame() {
-    if (isDebugActive) return;
-    try {
-        const gameData = {
-            score: STATE.score,
-            player: {
-                power: PLAYER.power,
-                fireRate: PLAYER.fireRate,
-                speed: PLAYER.speed,
-                maxHp: PLAYER.maxHp
-            },
-            upgradeCosts: { ...UPGRADE_COSTS }
-        };
-        localStorage.setItem('non_shogi_game_save', JSON.stringify(gameData));
-    } catch (e) {
-        console.error("ゲームデータの保存に失敗しました:", e);
-    }
-}
-
-/**
- * ゲームの進行状況とステータスを LocalStorage から読み込んで復元する
- */
-function loadGame() {
-    try {
-        const saved = localStorage.getItem('non_shogi_game_save');
-        if (saved) {
-            const gameData = JSON.parse(saved);
-            if (gameData) {
-                if (typeof gameData.score === 'number') {
-                    STATE.score = gameData.score;
-                }
-                if (gameData.player) {
-                    if (typeof gameData.player.power === 'number') PLAYER.power = gameData.player.power;
-                    if (typeof gameData.player.fireRate === 'number') PLAYER.fireRate = gameData.player.fireRate;
-                    if (typeof gameData.player.speed === 'number') PLAYER.speed = gameData.player.speed;
-                    if (typeof gameData.player.maxHp === 'number') {
-                        PLAYER.maxHp = gameData.player.maxHp;
-                        PLAYER.hp = PLAYER.maxHp;
-                    }
-                }
-                if (gameData.upgradeCosts) {
-                    for (const key in gameData.upgradeCosts) {
-                        if (Object.prototype.hasOwnProperty.call(gameData.upgradeCosts, key)) {
-                            UPGRADE_COSTS[key] = gameData.upgradeCosts[key];
-                        }
-                    }
-                }
-            }
-        }
-    } catch (e) {
-        console.error("ゲームデータの読み込みに失敗しました:", e);
-    }
-}
-
-/**
- * 3Dアセット生成失敗時にフォールバックとして配置されるダミーエネミークラス
- */
 class DummyEnemy {
     constructor(type, scale = 1.0) {
         this.type = type;
         this.hp = Math.max(10, scale * 10);
         this.maxHp = this.hp;
 
-        // 読み込み失敗が分かりやすいような、赤半透明の立方体を生成
         const geometry = new THREE.BoxGeometry(scale * 1.5, scale * 3.0, scale * 1.5);
         const material = new THREE.MeshStandardMaterial({ 
             color: 0xff3333, 
@@ -111,7 +52,6 @@ class DummyEnemy {
         
         this.mesh = new THREE.Mesh(geometry, material);
         
-        // 盤面内のランダムな位置に配置
         const angle = Math.random() * Math.PI * 2;
         const radius = 15 + Math.random() * 35;
         this.mesh.position.set(
@@ -130,22 +70,18 @@ class DummyEnemy {
 
     update(playerPosition, otherEnemies) {
         if (!this.mesh || !playerPosition) return;
-
-        // 最低限の処理としてプレイヤーへゆっくり接近させる
         const dir = new THREE.Vector3().subVectors(playerPosition, this.mesh.position);
         dir.y = 0;
         const distance = dir.length();
         if (distance > 1.5) {
             dir.normalize();
-            this.mesh.position.addScaledVector(dir, 0.05); // 緩やかな移動速度
+            this.mesh.position.addScaledVector(dir, 0.05);
             this.mesh.lookAt(playerPosition.x, this.mesh.position.y, playerPosition.z);
         }
     }
 
     takeHit(power) {
         this.hp -= power;
-
-        // 被弾時に一瞬白く点滅させる視覚フィードバック
         if (this.mesh && this.mesh.material) {
             const mat = this.mesh.material;
             const originalColor = mat.color.getHex();
@@ -154,12 +90,10 @@ class DummyEnemy {
                 if (mat) mat.color.setHex(originalColor);
             }, 100);
         }
-
         return this.hp <= 0;
     }
 }
 
-// 💡 プロミスのフリーズを回避し、最速でイベントとThree.jsを駆動させる起動設定
 function start() {
     initGame();
     setupEvents();
@@ -192,6 +126,8 @@ function initGame() {
 
     STATE.takeDamage = takeDamage;
     STATE.playerStunTime = 0;
+    STATE.introActive = false; // 登場演出フラグ初期化
+    STATE.introUpdate = null;
 
     STATE.scene = new THREE.Scene();
     STATE.scene.background = new THREE.Color(skyColor);
@@ -389,7 +325,9 @@ function initGame() {
         }
     }
 
-    loadGame(); // ゲーム開始前に LocalStorage からデータをロード
+    // entities.jsからshowMsgを呼び出せるように安全にグローバル空間にエクスポート
+    window.showMsg = showMsg;
+
     updateUI(); 
     animate();
 }
@@ -418,6 +356,13 @@ function cleanUpStage() {
     STATE.stageActive = false;
     STATE.isPaused = false;
     STATE.isGameOver = false;
+    STATE.introActive = false;
+    STATE.introUpdate = null;
+
+    const introOverlay = document.getElementById('boss-intro-overlay');
+    if (introOverlay && introOverlay.parentNode) {
+        introOverlay.parentNode.removeChild(introOverlay);
+    }
     
     const uiLayer = document.getElementById('ui-layer');
     if (uiLayer) uiLayer.style.display = 'none';
@@ -477,7 +422,7 @@ function getUnlockedPieces() {
         }
 
         if (isUnlocked) {
-            const pieces = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
+            const pieces = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'];
             pieces.forEach(p => {
                 if (stg[p] && stg[p] > 0) {
                     unlocked.add(p);
@@ -491,7 +436,7 @@ function getUnlockedPieces() {
 
 function filterEmptyStages(stageList) {
     if (!stageList) return [];
-    const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
+    const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'];
     return stageList.filter(stg => {
         let totalEnemies = 0;
         enemyTypes.forEach(type => {
@@ -594,6 +539,7 @@ function parseCSV(text) {
     return parsed;
 }
 
+// --- ボスステージ枠の豪華化対応 ---
 function buildStageSelectUI() {
     const container = document.getElementById('stage-list');
     if (!container) return;
@@ -616,7 +562,22 @@ function buildStageSelectUI() {
         const btn = document.createElement('button');
         btn.className = 'stage-btn';
         
-        const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五"];
+        // ステージにボス（王, キング, K, ヨット）が存在するかチェック
+        const hasBoss = (stg['王'] && stg['王'] > 0) || 
+                        (stg['キング'] && stg['キング'] > 0) || 
+                        (stg['K'] && stg['K'] > 0) ||
+                        (stg['ヨット'] && stg['ヨット'] > 0) ||
+                        (stg['Yacht'] && stg['Yacht'] > 0);
+                        
+        if (hasBoss) {
+            // ボス専用のCSSスタイルを直接流し込み（金色ボーダーとシャドウ）
+            btn.classList.add('boss-stage-btn');
+            btn.style.border = '2px solid #d4af37';
+            btn.style.boxShadow = '0 0 12px rgba(212, 175, 55, 0.7)';
+            btn.style.background = 'rgba(212, 175, 55, 0.12)';
+        }
+        
+        const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十"];
         const waveName = kanjis[stg.stage] || stg.stage;
         
         btn.onclick = () => selectStage(index);
@@ -626,7 +587,6 @@ function buildStageSelectUI() {
 }
 
 function selectStage(index) {
-    STATE.currentStageIndex = index;
     const stageSelectMenu = document.getElementById('stage-select-menu');
     if (stageSelectMenu) stageSelectMenu.style.display = 'none';
     const stageClearMenu = document.getElementById('stage-clear-menu');
@@ -683,10 +643,87 @@ function startPracticeStage(type) {
         ビショップ: type === 'ビショップ' ? 1 : 0,
         ルーク: type === 'ルーク' ? 1 : 0,
         クイーン: type === 'クイーン' ? 1 : 0,
-        キング: type === 'キング' ? 1 : 0
+        キング: type === 'キング' ? 1 : 0,
+        ヨット: type === 'ヨット' ? 1 : 0
     };
     STATE.currentPracticeStage = practiceStage;
     startStage(practiceStage);
+}
+
+// --- ボス登場演出（イントロフェーズ）のトリガー処理 ---
+function triggerBossIntro(boss) {
+    STATE.introActive = true;
+    STATE.stageActive = true; 
+    STATE.isPaused = false;
+    
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) uiLayer.style.display = 'none'; 
+
+    // 画面中央に警告用テキストオーバーレイを作成
+    const introOverlay = document.createElement('div');
+    introOverlay.id = 'boss-intro-overlay';
+    introOverlay.style.position = 'absolute';
+    introOverlay.style.top = '50%';
+    introOverlay.style.left = '50%';
+    introOverlay.style.transform = 'translate(-50%, -50%)';
+    introOverlay.style.color = '#ff3333';
+    introOverlay.style.fontSize = '34px';
+    introOverlay.style.fontWeight = 'bold';
+    introOverlay.style.fontFamily = 'serif';
+    introOverlay.style.textAlign = 'center';
+    introOverlay.style.lineHeight = '1.6';
+    introOverlay.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.8), 2px 2px 4px #000';
+    introOverlay.style.pointerEvents = 'none';
+    introOverlay.style.zIndex = '9999';
+    
+    const bossName = (boss.type === 'ヨット' || boss.type === 'Yacht') ? 'ヨット' : 'キング';
+    introOverlay.innerHTML = `⚠️ 警告 ⚠️<br>盤上の支配者『${bossName}』出現`;
+    document.body.appendChild(introOverlay);
+
+    // カメラの初期開始値
+    const originalPos = new THREE.Vector3(0, GROUND_Y + EYE_HEIGHT, 0);
+    const originalRotation = new THREE.Euler().copy(STATE.camera.rotation);
+    
+    const startTime = Date.now();
+    const duration = 3000; // 3秒間ズーム演出を行う
+    
+    // 描画ループ内で毎フレーム実行されるカメラ追従関数
+    STATE.introUpdate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(1.0, elapsed / duration);
+        
+        if (boss && boss.mesh) {
+            const bossPos = boss.mesh.position.clone();
+            // ボスに最大45%までカメラをズームイン
+            const targetCamPos = new THREE.Vector3().lerpVectors(
+                originalPos, 
+                bossPos.clone().add(new THREE.Vector3(0, -2.0, 0)), 
+                progress * 0.45 
+            );
+            STATE.camera.position.copy(targetCamPos);
+            STATE.camera.lookAt(bossPos.x, bossPos.y + 1.5, bossPos.z);
+        }
+        
+        if (progress >= 1.0) {
+            // 演出終了
+            STATE.introActive = false;
+            STATE.introUpdate = null;
+            if (introOverlay.parentNode) {
+                introOverlay.parentNode.removeChild(introOverlay);
+            }
+            
+            // カメラをプレイヤー位置に戻して戦闘開始
+            STATE.camera.position.copy(originalPos);
+            STATE.camera.rotation.copy(originalRotation);
+            
+            if (uiLayer) uiLayer.style.display = 'block';
+            updateUI();
+            
+            if (!isTouchDevice) {
+                document.body.requestPointerLock();
+            }
+        }
+    };
 }
 
 function startStage(stageData) {
@@ -703,7 +740,7 @@ function startStage(stageData) {
     
     STATE.playerStunTime = 0;
 
-    const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五"];
+    const kanjis = ["零","一","二","三","四","五","六","七","八","九","十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十"];
     const waveValEl = document.getElementById('wave-val');
     if (stageData.stage === 0) {
         if (waveValEl) waveValEl.innerText = "修";
@@ -714,15 +751,22 @@ function startStage(stageData) {
         showMsg("第" + waveName + "局：" + stageData.name);
     }
 
-    const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング'];
+    const enemyTypes = ['歩', '香', '桂', '銀', '金', '角', '飛', '王', 'ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'ヨット'];
     const scale = 1 + (stageData.stage * 0.1);
+
+    let bossEnemy = null;
 
     enemyTypes.forEach(type => {
         const count = stageData[type] || 0;
         for (let i = 0; i < count; i++) {
-            const enemyScale = (type === '王' || type === 'キング' || type === 'K') ? scale * 2.5 : scale;
+            const enemyScale = (type === '王' || type === 'キング' || type === 'K' || type === 'ヨット' || type === 'Yacht') ? scale * 2.5 : scale;
             try {
-                STATE.enemies.push(new Enemy(type, enemyScale));
+                const enemy = new Enemy(type, enemyScale);
+                STATE.enemies.push(enemy);
+                // ボス出現（王、キング、ヨット）を演出対象として検知
+                if (type === 'ヨット' || type === 'Yacht' || type === '王' || type === 'キング' || type === 'K') {
+                    bossEnemy = enemy;
+                }
             } catch (error) {
                 console.error(`エネミー [${type}] の生成に失敗しました。ダミーで代用します:`, error);
                 try {
@@ -735,15 +779,21 @@ function startStage(stageData) {
     });
 
     STATE.isGameOver = false;
-    STATE.stageActive = true;
-    STATE.isPaused = false;
-    
-    const uiLayer = document.getElementById('ui-layer');
-    if (uiLayer) uiLayer.style.display = 'block';
-    updateUI();
 
-    if (!isTouchDevice) {
-        document.body.requestPointerLock();
+    // ボス検知時は戦闘を開始せずに演出に切り替える
+    if (bossEnemy) {
+        triggerBossIntro(bossEnemy);
+    } else {
+        STATE.stageActive = true;
+        STATE.isPaused = false;
+        STATE.introActive = false;
+        const uiLayer = document.getElementById('ui-layer');
+        if (uiLayer) uiLayer.style.display = 'block';
+        updateUI();
+
+        if (!isTouchDevice) {
+            document.body.requestPointerLock();
+        }
     }
 }
 
@@ -775,8 +825,6 @@ function showStageClear() {
         }
     }
 
-    saveGame(); // 敵を倒して増えた所持銭やステータスを保存
-
     const stageClearMenu = document.getElementById('stage-clear-menu');
     if (stageClearMenu) stageClearMenu.style.display = 'flex';
     
@@ -806,7 +854,7 @@ function nextStage() {
 }
 
 function togglePause() {
-    if (!STATE.stageActive || STATE.isGameOver) return;
+    if (!STATE.stageActive || STATE.isGameOver || STATE.introActive) return; // 演出中のポーズを抑制
     if (STATE.isPaused) {
         resumeGame();
     } else {
@@ -927,7 +975,6 @@ function upgrade(type) {
     if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
     UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
     updateUI();
-    saveGame(); // 強化完了時にセーブ
 }
 
 function upgradeByIndex(index) {
@@ -988,7 +1035,7 @@ function showMsg(txt) {
 }
 
 function toggleShop() {
-    if(!STATE.stageActive || STATE.isPaused) return; 
+    if(!STATE.stageActive || STATE.isPaused || STATE.introActive) return; // 演出中のショップ防止
     STATE.shopOpen = !STATE.shopOpen;
     const shopMenu = document.getElementById('shop-menu');
     if (shopMenu) {
@@ -1001,7 +1048,6 @@ function toggleShop() {
 }
 
 function activateDebugMode() {
-    isDebugActive = true; // デバッグフラグを有効にして以降のセーブをスキップ
     PLAYER.maxHp = 9999;
     PLAYER.hp = 9999;
     PLAYER.power = 100;
@@ -1121,7 +1167,7 @@ function setupEvents() {
             togglePause();
         }
         
-        if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive && !STATE.isPaused) {
+        if(e.code === 'Space' && PLAYER.isGrounded && !STATE.shopOpen && STATE.stageActive && !STATE.isPaused && !STATE.introActive) {
             if (STATE.playerStunTime <= 0) {
                 PLAYER.vy = JUMP_FORCE;
                 PLAYER.isGrounded = false;
@@ -1160,7 +1206,7 @@ function setupEvents() {
     }
 
     window.addEventListener('mousemove', e => {
-        if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused && STATE.camera) {
+        if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused && STATE.camera && !STATE.introActive) {
             STATE.camera.rotation.y -= e.movementX * 0.0025;
             STATE.camera.rotation.x = Math.max(-1.4, Math.min(1.4, STATE.camera.rotation.x - e.movementY * 0.0025));
         }
@@ -1179,7 +1225,7 @@ function setupEvents() {
     }, { passive: true });
 
     window.addEventListener('mousedown', (e) => {
-        if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused) return;
+        if (!STATE.stageActive || STATE.isGameOver || STATE.isPaused || STATE.introActive) return;
 
         if (e.button === 2) {
             if (STATE.shopOpen) {
@@ -1203,7 +1249,7 @@ function setupEvents() {
 
     document.addEventListener('pointerlockchange', () => {
         if (!isTouchDevice && !document.pointerLockElement) {
-            if (STATE.stageActive && !STATE.isGameOver && !STATE.shopOpen && !STATE.isPaused) {
+            if (STATE.stageActive && !STATE.isGameOver && !STATE.shopOpen && !STATE.isPaused && !STATE.introActive) {
                 pauseGame();
             }
         }
@@ -1220,7 +1266,7 @@ function setupTouchControls() {
     let lastLookY = 0;
 
     window.addEventListener('touchstart', e => {
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.introActive) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             let target = touch.target;
@@ -1247,7 +1293,7 @@ function setupTouchControls() {
     }, { passive: false });
 
     window.addEventListener('touchmove', e => {
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.introActive) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             if (touch.identifier === lookTouchId && STATE.camera) {
@@ -1283,7 +1329,7 @@ function setupTouchControls() {
 
     if (joystickOuter && joystickKnob) {
         joystickOuter.addEventListener('touchstart', e => {
-            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.introActive) return;
             e.preventDefault();
             const touch = e.changedTouches[0];
             joystickTouchId = touch.identifier;
@@ -1338,7 +1384,7 @@ function setupTouchControls() {
 
     addSafeTouchStart('btn-shoot', e => {
         e.preventDefault();
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0) return;
+        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0 || STATE.introActive) return;
         PLAYER.isShooting = true;
     });
     
@@ -1355,7 +1401,7 @@ function setupTouchControls() {
 
     addSafeTouchStart('btn-jump', e => {
         e.preventDefault();
-        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0) return;
+        if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.playerStunTime > 0 || STATE.introActive) return;
         if (PLAYER.isGrounded) {
             PLAYER.vy = JUMP_FORCE;
             PLAYER.isGrounded = false;
@@ -1366,7 +1412,7 @@ function setupTouchControls() {
     if (btnDash) {
         btnDash.addEventListener('touchstart', e => {
             e.preventDefault();
-            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+            if (STATE.shopOpen || STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.introActive) return;
             STATE.dashActive = !STATE.dashActive;
             if (STATE.dashActive) {
                 btnDash.classList.add('active');
@@ -1378,13 +1424,13 @@ function setupTouchControls() {
 
     addSafeTouchStart('btn-shop', e => {
         e.preventDefault();
-        if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused) return;
+        if (STATE.isGameOver || !STATE.stageActive || STATE.isPaused || STATE.introActive) return;
         toggleShop();
     });
 
     addSafeTouchStart('btn-pause', e => {
         e.preventDefault();
-        if (STATE.isGameOver || !STATE.stageActive) return;
+        if (STATE.isGameOver || !STATE.stageActive || STATE.introActive) return;
         togglePause();
     });
 }
@@ -1415,13 +1461,20 @@ function animate() {
         STATE.camera.lookAt(0, GROUND_Y, 0);
     }
 
-    // レンダラーとカメラ、シーンが存在する場合のみレンダリングを実行
     if (STATE.renderer && STATE.scene && STATE.camera) {
         STATE.renderer.render(STATE.scene, STATE.camera);
     }
 
     if (!STATE.stageActive) return;
     if (STATE.isPaused) return;
+
+    // --- ボス登場演出（イントロフェーズ）中の割り込みアップデート ---
+    if (STATE.introActive) {
+        if (typeof STATE.introUpdate === 'function') {
+            STATE.introUpdate();
+        }
+        return; // 移動・射撃、エネミー更新等はすべてスルーする
+    }
 
     if (STATE.playerStunTime > 0) {
         STATE.playerStunTime -= 16.67; 
@@ -1555,9 +1608,19 @@ function animate() {
                     
                     const dx = b.mesh.position.x - en.mesh.position.x;
                     const dz = b.mesh.position.z - en.mesh.position.z;
-                    const dy = b.mesh.position.y - (en.mesh.position.y + 1.2);
+                    
+                    // ヨット(浮遊)用の高さを考慮した被弾判定
+                    let targetCenterY = en.mesh.position.y + 1.2;
+                    if (en.type === 'ヨット' || en.type === 'Yacht') {
+                        targetCenterY = en.mesh.position.y;
+                    }
+                    const dy = b.mesh.position.y - targetCenterY;
 
-                    if (dx*dx + dz*dz < 6.25 && Math.abs(dy) < 3.0) {
+                    // ボス「ヨット」用の大きめの当たり判定(球状・半径4.5付近)
+                    const hitRadiusSq = (en.type === 'ヨット' || en.type === 'Yacht') ? 25.0 : 6.25;
+                    const hitHeightLimit = (en.type === 'ヨット' || en.type === 'Yacht') ? 5.0 : 3.0;
+
+                    if (dx*dx + dz*dz < hitRadiusSq && Math.abs(dy) < hitHeightLimit) {
                         flashCrosshair();
                         
                         let isKilled = false;
@@ -1569,7 +1632,7 @@ function animate() {
                         }
 
                         if (isKilled) {
-                            const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K');
+                            const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K' || en.type === 'ヨット' || en.type === 'Yacht');
                             STATE.score += (isBoss ? 10000 : 200);
                             
                             const dropProb = isBoss ? 1.0 : 0.3;
