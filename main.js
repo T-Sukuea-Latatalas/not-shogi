@@ -502,14 +502,14 @@ function parseCSV(text) {
         let current = '';
         let inQuotes = false;
         for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"' || char === "'") {
+            const transform_char = line[i];
+            if (transform_char === '"' || transform_char === "'") {
                 inQuotes = !inQuotes;
-            } else if (char === delim && !inQuotes) {
+            } else if (transform_char === delim && !inQuotes) {
                 result.push(current.trim());
                 current = '';
             } else {
-                current += char;
+                current += transform_char;
             }
         }
         result.push(current.trim());
@@ -593,7 +593,7 @@ function selectStage(index) {
     const gameOverMenu = document.getElementById('game-over');
     if (gameOverMenu) gameOverMenu.style.display = 'none';
 
-    STATE.currentStageIndex = index; // 選択されたステージのインデックスを管理する代入処理を追加
+    STATE.currentStageIndex = index; // 修正：現在のステージインデックスを同期
     STATE.isPaused = false;
     STATE.isGameOver = false;
     startStage(STATE.stages[index]);
@@ -757,11 +757,12 @@ function startStage(stageData) {
     enemyTypes.forEach(type => {
         const count = stageData[type] || 0;
         for (let i = 0; i < count; i++) {
-            const enemyScale = (type === '王' || type === 'キング' || type === 'K' || type === 'ヨット' || type === 'Yacht') ? scale * 2.5 : scale;
+            // 修正：王、キング、K をボス枠（スケール拡大）から除外し、ヨットのみに制限
+            const enemyScale = (type === 'ヨット' || type === 'Yacht') ? scale * 2.5 : scale;
             try {
                 const enemy = new Enemy(type, enemyScale);
                 STATE.enemies.push(enemy);
-                // 登場演出を「ヨット」および「Yacht」のみに限定
+                // 修正：王、キング、K を演出対象のボス検知から除外し、ヨットのみに制限
                 if (type === 'ヨット' || type === 'Yacht') {
                     bossEnemy = enemy;
                 }
@@ -1630,8 +1631,7 @@ function animate() {
                         }
 
                         if (isKilled) {
-                            // ボス判定（高スコアおよびアイテム確定ドロップ）の対象をヨットのみに限定
-                            const isBoss = (en.type === 'ヨット' || en.type === 'Yacht');
+                            const isBoss = (en.type === '王' || en.type === 'キング' || en.type === 'K' || en.type === 'ヨット' || en.type === 'Yacht');
                             STATE.score += (isBoss ? 10000 : 200);
                             
                             const dropProb = isBoss ? 1.0 : 0.3;
