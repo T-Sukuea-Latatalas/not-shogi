@@ -331,6 +331,7 @@ function initGame() {
         }
     }
 
+    loadPlayerStats(); // 保存されているプレイヤー強化データを読み込む
     updateUI(); 
     animate();
 }
@@ -397,6 +398,50 @@ function saveClearedStage(stageNum) {
         }
     } catch (e) {
         console.error("セーブデータの保存に失敗しました:", e);
+    }
+}
+
+function savePlayerStats() {
+    if (STATE.isDebug) return; // デバッグモードの極限状態は保存しない
+    try {
+        const stats = {
+            power: PLAYER.power,
+            fireRate: PLAYER.fireRate,
+            speed: PLAYER.speed,
+            maxHp: PLAYER.maxHp,
+            score: STATE.score,
+            upgradeCosts: UPGRADE_COSTS
+        };
+        localStorage.setItem('non_shogi_player_stats', JSON.stringify(stats));
+    } catch (e) {
+        console.error("プレイヤーデータのセーブに失敗しました:", e);
+    }
+}
+
+function loadPlayerStats() {
+    try {
+        const data = localStorage.getItem('non_shogi_player_stats');
+        if (!data) return;
+        const stats = JSON.parse(data);
+        if (stats) {
+            if (typeof stats.power === 'number') PLAYER.power = stats.power;
+            if (typeof stats.fireRate === 'number') PLAYER.fireRate = stats.fireRate;
+            if (typeof stats.speed === 'number') PLAYER.speed = stats.speed;
+            if (typeof stats.maxHp === 'number') {
+                PLAYER.maxHp = stats.maxHp;
+                PLAYER.hp = stats.maxHp; // 現在のHPを復元した最大HPで満タンにする
+            }
+            if (typeof stats.score === 'number') STATE.score = stats.score;
+            if (stats.upgradeCosts && typeof stats.upgradeCosts === 'object') {
+                for (const key in stats.upgradeCosts) {
+                    if (Object.prototype.hasOwnProperty.call(stats.upgradeCosts, key)) {
+                        UPGRADE_COSTS[key] = stats.upgradeCosts[key];
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error("プレイヤーデータのロードに失敗しました:", e);
     }
 }
 
@@ -716,6 +761,8 @@ function showStageClear() {
         }
     }
 
+    savePlayerStats(); // クリアして獲得した銭などを保存
+
     const stageClearMenu = document.getElementById('stage-clear-menu');
     if (stageClearMenu) stageClearMenu.style.display = 'flex';
     
@@ -865,6 +912,7 @@ function upgrade(type) {
     if (type === 'speed') PLAYER.speed += 0.06;
     if (type === 'hp') { PLAYER.maxHp += 50; PLAYER.hp += 50; }
     UPGRADE_COSTS[type] = Math.floor(UPGRADE_COSTS[type] * 1.5);
+    savePlayerStats(); // 強化処理の直後にセーブを実行
     updateUI();
 }
 
@@ -939,6 +987,7 @@ function toggleShop() {
 }
 
 function activateDebugMode() {
+    STATE.isDebug = true; // デバッグフラグを有効にし、セーブ機能による上書きを防ぐ
     PLAYER.maxHp = 9999;
     PLAYER.hp = 9999;
     PLAYER.power = 100;
