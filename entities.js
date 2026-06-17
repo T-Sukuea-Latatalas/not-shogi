@@ -194,6 +194,10 @@ export class Enemy {
         this.type = type;
         this.alive = true;
         
+        // タイマーおよび一時オブジェクト追跡リスト
+        this.activeTimers = [];
+        this.activeTempObjects = [];
+        
         const chessTypes = ['ポーン', 'ナイト', 'ビショップ', 'ルーク', 'クイーン', 'キング', 'P', 'N', 'B', 'R', 'Q', 'K'];
         let geom = null;
         let mats = null;
@@ -307,6 +311,107 @@ export class Enemy {
         }
     }
 
+    // --- タイマー/インターバルヘルパー関数 ---
+    registerTimeout(fn, delay) {
+        if (!this.alive) return null;
+        let id;
+        id = setTimeout(() => {
+            if (this.alive) {
+                fn();
+            }
+            this.activeTimers = this.activeTimers.filter(t => t !== id);
+        }, delay);
+        this.activeTimers.push(id);
+        return id;
+    }
+
+    registerInterval(fn, delay) {
+        if (!this.alive) return null;
+        let id;
+        id = setInterval(() => {
+            if (this.alive) {
+                fn();
+            } else {
+                clearInterval(id);
+                this.activeTimers = this.activeTimers.filter(t => t !== id);
+            }
+        }, delay);
+        this.activeTimers.push(id);
+        return id;
+    }
+
+    clearAllTimers() {
+        if (this.activeTimers) {
+            this.activeTimers.forEach(id => {
+                clearTimeout(id);
+                clearInterval(id);
+            });
+            this.activeTimers = [];
+        }
+    }
+
+    // --- 一時生成オブジェクトの安全なクリーンアップ追跡 ---
+    registerTempObject(mesh, geom, mat) {
+        const obj = { mesh, geom, mat };
+        this.activeTempObjects.push(obj);
+        return obj;
+    }
+
+    removeTempObject(obj) {
+        if (!obj) return;
+        if (STATE && STATE.scene && obj.mesh) {
+            STATE.scene.remove(obj.mesh);
+        }
+        if (obj.mesh) {
+            if (obj.mesh.geometry) obj.mesh.geometry.dispose();
+            if (obj.mesh.material) {
+                if (Array.isArray(obj.mesh.material)) {
+                    obj.mesh.material.forEach(m => { if (m) m.dispose(); });
+                } else {
+                    obj.mesh.material.dispose();
+                }
+            }
+        }
+        if (obj.geom) obj.geom.dispose();
+        if (obj.mat) {
+            if (Array.isArray(obj.mat)) {
+                obj.mat.forEach(m => { if (m) m.dispose(); });
+            } else {
+                obj.mat.dispose();
+            }
+        }
+        this.activeTempObjects = this.activeTempObjects.filter(item => item !== obj);
+    }
+
+    clearAllTempObjects() {
+        if (this.activeTempObjects) {
+            this.activeTempObjects.forEach(obj => {
+                if (STATE && STATE.scene && obj.mesh) {
+                    STATE.scene.remove(obj.mesh);
+                }
+                if (obj.mesh) {
+                    if (obj.mesh.geometry) obj.mesh.geometry.dispose();
+                    if (obj.mesh.material) {
+                        if (Array.isArray(obj.mesh.material)) {
+                            obj.mesh.material.forEach(m => { if (m) m.dispose(); });
+                        } else {
+                            obj.mesh.material.dispose();
+                        }
+                    }
+                }
+                if (obj.geom) obj.geom.dispose();
+                if (obj.mat) {
+                    if (Array.isArray(obj.mat)) {
+                        obj.mat.forEach(m => { if (m) m.dispose(); });
+                    } else {
+                        obj.mat.dispose();
+                    }
+                }
+            });
+            this.activeTempObjects = [];
+        }
+    }
+
     getHPBase(t) {
         const hps = { 
             '歩':4, '香':6, '桂':5, '銀':8, '金':10, '角':12, '飛':15, '王':80,
@@ -335,12 +440,16 @@ export class Enemy {
     }
 
     setEmissiveColor(color, intensity = 1.0) {
-        if (!this.mats) return;
+        if (!this.mats || !Array.isArray(this.mats)) return;
         this.mats.forEach(mat => {
-            if (mat && mat.emissive && typeof mat.emissive.set === 'function') {
-                mat.emissive.set(color);
-                if ('emissiveIntensity' in mat) {
-                    mat.emissiveIntensity = intensity;
+            if (mat && typeof mat === 'object' && mat.emissive && typeof mat.emissive.set === 'function') {
+                try {
+                    mat.emissive.set(color);
+                    if ('emissiveIntensity' in mat) {
+                        mat.emissiveIntensity = intensity;
+                    }
+                } catch (e) {
+                    // エラーを安全に回避
                 }
             }
         });
@@ -509,12 +618,10 @@ export class Enemy {
                             circle.rotation.x = Math.PI / 2;
                             circle.position.set(this.mesh.position.x, gy + 0.05, this.mesh.position.z);
                             STATE.scene.add(circle);
-                            setTimeout(() => { 
-                                if (STATE && STATE.scene) {
-                                    STATE.scene.remove(circle); 
-                                }
-                                circleGeom.dispose();
-                                circleMat.dispose();
+                            
+                            const tempCircle = this.registerTempObject(circle, circleGeom, circleMat);
+                            this.registerTimeout(() => { 
+                                this.removeTempObject(tempCircle);
                             }, 300);
                         }
                     }
@@ -702,7 +809,7 @@ export class Enemy {
 
         this.hp -= dmg;
         this.setEmissiveColor(0xffffff, 2.0);
-        setTimeout(() => { 
+        this.registerTimeout(() => { 
             if (this.alive) {
                 this.setEmissiveColor(0x000000, 1.0);
             }
@@ -710,9 +817,10 @@ export class Enemy {
 
         const isDead = this.hp <= 0;
         if (isDead) {
-            // ボスとしての撃破時爆発エフェクト（およびダイス消去）の対象を「ヨット / Yacht」のみに限定
-            if (this.type === 'ヨット' || this.type === 'Yacht') {
+            if (this.type === 'キング' || this.type === 'K' || this.type === 'ヨット' || this.type === 'Yacht') {
                 this.triggerKingExplosion();
+            }
+            if (this.type === 'ヨット' || this.type === 'Yacht') {
                 this.clearYachtDiceMeshes();
             }
         }
@@ -723,7 +831,7 @@ export class Enemy {
         if (this.yachtShieldMesh) {
             this.yachtShieldMesh.visible = true;
             this.yachtShieldMesh.material.opacity = 0.6;
-            setTimeout(() => {
+            this.registerTimeout(() => {
                 if (this.yachtShieldMesh) {
                     this.yachtShieldMesh.material.opacity = 0.25;
                 }
@@ -915,7 +1023,7 @@ export class Enemy {
         let count = 0;
         const origin = this.mesh.position.clone().add(new THREE.Vector3(0, 1.5, 0));
         
-        const intervalId = setInterval(() => {
+        const intervalId = this.registerInterval(() => {
             if (!this.alive || count >= 4) {
                 clearInterval(intervalId);
                 return;
@@ -929,6 +1037,10 @@ export class Enemy {
                 STATE.enemyBullets.push(proj);
             }
             count++;
+            
+            if (count >= 4) {
+                clearInterval(intervalId);
+            }
         }, 800);
     }
 
@@ -958,7 +1070,7 @@ export class Enemy {
         const gy = (typeof GROUND_Y === 'number') ? GROUND_Y : 0;
         
         for (let i = 0; i < linesCount; i++) {
-            setTimeout(() => {
+            this.registerTimeout(() => {
                 if (!this.alive) return;
                 
                 const cameraPos = (STATE && STATE.camera && STATE.camera.position) ? STATE.camera.position : new THREE.Vector3();
@@ -986,13 +1098,10 @@ export class Enemy {
                 if (STATE && STATE.scene) {
                     STATE.scene.add(lineMesh);
                 }
+                const tempLine = this.registerTempObject(lineMesh, lineGeom, lineMat);
                 
-                setTimeout(() => {
-                    if (STATE && STATE.scene) {
-                        STATE.scene.remove(lineMesh);
-                    }
-                    lineGeom.dispose();
-                    lineMat.dispose();
+                this.registerTimeout(() => {
+                    this.removeTempObject(tempLine);
                     
                     if (!this.alive) return;
                     
@@ -1023,7 +1132,7 @@ export class Enemy {
         const gy = (typeof GROUND_Y === 'number') ? GROUND_Y : 0;
         
         for (let i = 0; i < 5; i++) {
-            setTimeout(() => {
+            this.registerTimeout(() => {
                 if (!this.alive) return;
                 
                 const cameraPos = (STATE && STATE.camera && STATE.camera.position) ? STATE.camera.position : new THREE.Vector3();
@@ -1042,6 +1151,7 @@ export class Enemy {
                 if (STATE && STATE.scene) {
                     STATE.scene.add(circle);
                 }
+                const tempCircle = this.registerTempObject(circle, circleGeom, circleMat);
                 
                 // 上空に巨大ダイスメテオ生成
                 const meteorGeom = new THREE.BoxGeometry(3.0, 3.0, 3.0);
@@ -1057,21 +1167,16 @@ export class Enemy {
                 if (STATE && STATE.scene) {
                     STATE.scene.add(meteorMesh);
                 }
+                const tempMeteor = this.registerTempObject(meteorMesh, meteorGeom, meteorMat);
                 
                 let meteorY = gy + 35.0;
                 const fallSpeed = 0.8;
                 
-                const fallInterval = setInterval(() => {
+                const fallIntervalId = this.registerInterval(() => {
                     if (!this.alive) {
-                        clearInterval(fallInterval);
-                        if (STATE && STATE.scene) {
-                            STATE.scene.remove(meteorMesh);
-                            STATE.scene.remove(circle);
-                        }
-                        meteorGeom.dispose();
-                        meteorMat.dispose();
-                        circleGeom.dispose();
-                        circleMat.dispose();
+                        clearInterval(fallIntervalId);
+                        this.removeTempObject(tempMeteor);
+                        this.removeTempObject(tempCircle);
                         return;
                     }
                     
@@ -1081,17 +1186,11 @@ export class Enemy {
                     meteorMesh.rotation.y += 0.08;
                     
                     if (meteorY <= gy + 1.5) {
-                        clearInterval(fallInterval);
+                        clearInterval(fallIntervalId);
                         this.triggerMeteorExplosion(new THREE.Vector3(targetX, gy, targetZ));
                         
-                        if (STATE && STATE.scene) {
-                            STATE.scene.remove(meteorMesh);
-                            STATE.scene.remove(circle);
-                        }
-                        meteorGeom.dispose();
-                        meteorMat.dispose();
-                        circleGeom.dispose();
-                        circleMat.dispose();
+                        this.removeTempObject(tempMeteor);
+                        this.removeTempObject(tempCircle);
                     }
                 }, 16);
                 
@@ -1110,23 +1209,27 @@ export class Enemy {
         if (STATE && STATE.scene) {
             STATE.scene.add(expMesh);
         }
+        const tempExp = this.registerTempObject(expMesh, expGeom, expMat);
         
         let currentScale = 1.0;
-        const interval = setInterval(() => {
+        const fallIntervalId = this.registerInterval(() => {
+            if (!this.alive) {
+                clearInterval(fallIntervalId);
+                this.removeTempObject(tempExp);
+                return;
+            }
+            
             currentScale += 0.35;
             if (expMesh && expMat) {
                 expMesh.scale.set(currentScale, currentScale, currentScale);
                 expMat.opacity -= 0.05;
                 if (expMat.opacity <= 0) {
-                    clearInterval(interval);
-                    if (STATE && STATE.scene) {
-                        STATE.scene.remove(expMesh);
-                    }
-                    expGeom.dispose();
-                    expMat.dispose();
+                    clearInterval(fallIntervalId);
+                    this.removeTempObject(tempExp);
                 }
             } else {
-                clearInterval(interval);
+                clearInterval(fallIntervalId);
+                this.removeTempObject(tempExp);
             }
         }, 16);
         
@@ -1150,23 +1253,27 @@ export class Enemy {
         if (STATE && STATE.scene) {
             STATE.scene.add(expMesh);
         }
+        const tempExp = this.registerTempObject(expMesh, expGeom, expMat);
         
         let currentScale = 1.0;
-        const interval = setInterval(() => {
+        const fallIntervalId = this.registerInterval(() => {
+            if (!this.alive) {
+                clearInterval(fallIntervalId);
+                this.removeTempObject(tempExp);
+                return;
+            }
+            
             currentScale += 0.4;
             if (expMesh && expMat) {
                 expMesh.scale.set(currentScale, currentScale, currentScale);
                 expMat.opacity -= 0.04;
                 if (expMat.opacity <= 0) {
-                    clearInterval(interval);
-                    if (STATE && STATE.scene) {
-                        STATE.scene.remove(expMesh);
-                    }
-                    expGeom.dispose();
-                    expMat.dispose();
+                    clearInterval(fallIntervalId);
+                    this.removeTempObject(tempExp);
                 }
             } else {
-                clearInterval(interval);
+                clearInterval(fallIntervalId);
+                this.removeTempObject(tempExp);
             }
         }, 16);
 
@@ -1182,6 +1289,11 @@ export class Enemy {
     destroy() {
         if (!this.alive) return;
         this.alive = false;
+        
+        // すべての走っているタイマー・一時オブジェクトを即座に破棄
+        this.clearAllTimers();
+        this.clearAllTempObjects();
+
         if (this.type === 'ヨット' || this.type === 'Yacht') {
             this.clearYachtDiceMeshes();
         }
@@ -1189,6 +1301,20 @@ export class Enemy {
             STATE.scene.remove(this.mesh);
         }
         if (this.mesh) {
+            // Group構造の場合は、子要素全てのメッシュおよびジオメトリ・マテリアルもトラバースして破棄する
+            this.mesh.traverse(child => {
+                if (child.isMesh) {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                        if (Array.isArray(child.material)) {
+                            child.material.forEach(m => { if (m) m.dispose(); });
+                        } else {
+                            child.material.dispose();
+                        }
+                    }
+                }
+            });
+
             if (this.mesh.geometry) this.mesh.geometry.dispose();
             if (this.mesh.material) {
                 if (Array.isArray(this.mesh.material)) {
