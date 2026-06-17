@@ -710,10 +710,9 @@ export class Enemy {
 
         const isDead = this.hp <= 0;
         if (isDead) {
-            if (this.type === 'キング' || this.type === 'K' || this.type === 'ヨット' || this.type === 'Yacht') {
-                this.triggerKingExplosion();
-            }
+            // ボスとしての撃破時爆発エフェクト（およびダイス消去）の対象を「ヨット / Yacht」のみに限定
             if (this.type === 'ヨット' || this.type === 'Yacht') {
+                this.triggerKingExplosion();
                 this.clearYachtDiceMeshes();
             }
         }
