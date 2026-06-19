@@ -9,6 +9,22 @@
 </head>
 <body>
 
+    <!-- 操作方法選択画面 -->
+    <div id="device-select-screen">
+        <div class="deco-circle"></div>
+        <div class="menu-inner" style="text-align: center;">
+            <div class="washitsu-header">
+                <span class="sub-title">SELECT CONTROL</span>
+                <h1 class="miyabi-title" style="font-size: 4.5rem;">操作方法選択</h1>
+                <div class="kazarikei"></div>
+            </div>
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+                <button id="btn-select-pc" class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;">キーボード・マウス</button>
+                <button id="btn-select-touch" class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem; border-color: #d4af37; color: #d4af37; background: rgba(20, 20, 20, 0.6);">タッチ操作 (スマホ・タブレット)</button>
+            </div>
+        </div>
+    </div>
+
     <div id="washi-overlay"></div>
     <div id="damage-vignette"></div>
     
@@ -61,7 +77,7 @@
     </div>
 
     <!-- タイトル画面 -->
-    <div id="title-screen">
+    <div id="title-screen" style="display: none;">
         <div class="deco-circle"></div>
         <div class="menu-inner" style="text-align: center;">
             <div class="washitsu-header">
@@ -190,6 +206,8 @@
     }
     </script>
     
+    <!-- デバッグ機能のロード（ESモジュール） -->
+    <script type="module" src="./debug-extension.js"></script>
     <!-- メインエントリースクリプトのロード（ESモジュール） -->
     <script type="module" src="./main.js"></script>
 </body>
