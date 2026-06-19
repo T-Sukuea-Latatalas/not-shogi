@@ -12,6 +12,10 @@ const keys = {};
 const debugKeys = ['d', 'e', 'b', 'u', 'g'];
 let debugIndex = 0;
 
+// 操作方法の選択に対応するため、動的に切り替え可能な変数として定義
+let currentTouchMode = isTouchDevice;
+let touchControlsSetup = false;
+
 // すでに constants.js の PRACTICE_PIECES にヨットを含むすべての駒が定義されているため、そのまま使用します。
 const ALL_PRACTICE_PIECES = PRACTICE_PIECES;
 
@@ -180,6 +184,32 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     window.addEventListener('DOMContentLoaded', start);
 }
 
+// タッチ操作関係の動的セットアップ関数
+function initTouchControls() {
+    if (touchControlsSetup) return;
+    setupTouchControls();
+    touchControlsSetup = true;
+
+    document.body.classList.add('touch-device');
+    
+    // 【UI全体の干渉に対する防護措置】
+    // スマートフォン等でのブラウザ独自のスクロール・ズーム（ピンチ等）動作を抑制し、
+    // ゲーム内のドラッグ視点移動（カメラ回転）へ干渉するのを防止します。
+    document.body.style.touchAction = 'none';
+
+    // 画面全体を覆うUIレイヤーが、タッチ操作によるドラッグ移動を遮断してしまわないように
+    // レイヤー自体のイベントを透過させます（子要素のボタン類には別途 pointer-events: auto が必要です）。
+    const uiLayer = document.getElementById('ui-layer');
+    if (uiLayer) {
+        uiLayer.style.pointerEvents = 'none';
+    }
+
+    const shopCloseDesc = document.getElementById('shop-close-desc');
+    if (shopCloseDesc) {
+        shopCloseDesc.innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
+    }
+}
+
 function initGame() {
     // 常に明るくて見えやすい「昼間」のパラメータで固定
     const skyColor = 0xd2dad2;
@@ -209,6 +239,12 @@ function initGame() {
     STATE.camera.position.set(0, GROUND_Y + EYE_HEIGHT, 0);
 
     STATE.renderer = new THREE.WebGLRenderer({ antialias: true });
+    
+    // 【動的に生成される canvas 要素へのスタイル追加】
+    // モバイル環境下でドラッグによるカメラ回転（視点変更）が正常に継続するよう、
+    // 生成されたばかりのcanvas要素に対して直接 touch-action を none に指定します。
+    STATE.renderer.domElement.style.touchAction = 'none';
+    
     STATE.renderer.setSize(window.innerWidth, window.innerHeight);
     STATE.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     STATE.renderer.shadowMap.enabled = true;
@@ -390,12 +426,8 @@ function initGame() {
         }
     });
 
-    if (isTouchDevice) {
-        document.body.classList.add('touch-device');
-        const shopCloseDesc = document.getElementById('shop-close-desc');
-        if (shopCloseDesc) {
-            shopCloseDesc.innerHTML = '[店] ボタン または [Tab] キーで閉じる<br>[控] で一時停止<br>項目タップで購入';
-        }
+    if (currentTouchMode) {
+        initTouchControls();
     }
 
     // entities.jsからshowMsgを呼び出せるように安全にグローバル空間にエクスポート
@@ -463,7 +495,7 @@ function cleanUpStage() {
     const gameOverMenu = document.getElementById('game-over');
     if (gameOverMenu) gameOverMenu.style.display = 'none';
 
-    if (!isTouchDevice && document.pointerLockElement) {
+    if (!currentTouchMode && document.pointerLockElement) {
         document.exitPointerLock();
     }
 }
@@ -802,7 +834,7 @@ function triggerBossIntro(boss) {
             if (uiLayer) uiLayer.style.display = 'block';
             updateUI();
             
-            if (!isTouchDevice) {
+            if (!currentTouchMode) {
                 document.body.requestPointerLock();
             }
         }
@@ -875,7 +907,7 @@ function startStage(stageData) {
         if (uiLayer) uiLayer.style.display = 'block';
         updateUI();
 
-        if (!isTouchDevice) {
+        if (!currentTouchMode) {
             document.body.requestPointerLock();
         }
     }
@@ -898,7 +930,7 @@ function showStageClear() {
     const uiLayer = document.getElementById('ui-layer');
     if (uiLayer) uiLayer.style.display = 'none';
     
-    if (!isTouchDevice && document.pointerLockElement) {
+    if (!currentTouchMode && document.pointerLockElement) {
         document.exitPointerLock();
     }
     
@@ -959,7 +991,7 @@ function pauseGame() {
     STATE.isPaused = true;
     const pauseMenu = document.getElementById('pause-menu');
     if (pauseMenu) pauseMenu.style.display = 'flex';
-    if (!isTouchDevice && document.pointerLockElement) {
+    if (!currentTouchMode && document.pointerLockElement) {
         document.exitPointerLock();
     }
     PLAYER.isShooting = false;
@@ -981,7 +1013,7 @@ function resumeGame() {
     STATE.isPaused = false;
     const pauseMenu = document.getElementById('pause-menu');
     if (pauseMenu) pauseMenu.style.display = 'none';
-    if (!isTouchDevice) {
+    if (!currentTouchMode) {
         document.body.requestPointerLock();
     }
     updateUI();
@@ -1039,7 +1071,7 @@ export function takeDamage(amt) {
             if (goPractice) goPractice.style.display = 'none';
         }
 
-        if (!isTouchDevice && document.pointerLockElement) document.exitPointerLock();
+        if (!currentTouchMode && document.pointerLockElement) document.exitPointerLock();
     }
 }
 
@@ -1156,6 +1188,26 @@ function setupEvents() {
         const el = document.getElementById(id);
         if (el) el.addEventListener(eventName, handler);
     };
+
+    // 操作方法選択：PC（キーボード＆マウス）
+    addSafeEvent('btn-select-pc', 'click', () => {
+        currentTouchMode = false;
+        document.body.classList.remove('touch-device');
+        const selectScreen = document.getElementById('device-select-screen');
+        if (selectScreen) selectScreen.style.display = 'none';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
+    });
+
+    // 操作方法選択：タッチ操作（スマートフォン・タブレット）
+    addSafeEvent('btn-select-touch', 'click', () => {
+        currentTouchMode = true;
+        initTouchControls();
+        const selectScreen = document.getElementById('device-select-screen');
+        if (selectScreen) selectScreen.style.display = 'none';
+        const titleScreen = document.getElementById('title-screen');
+        if (titleScreen) titleScreen.style.display = 'flex';
+    });
 
     addSafeEvent('btn-campaign-start', 'click', () => {
         const titleScreen = document.getElementById('title-screen');
@@ -1299,7 +1351,7 @@ function setupEvents() {
     }
 
     window.addEventListener('mousemove', e => {
-        if (!isTouchDevice && document.pointerLockElement && STATE.stageActive && !STATE.isPaused && STATE.camera && !STATE.introActive) {
+        if (!currentTouchMode && document.pointerLockElement && STATE.stageActive && !STATE.isPaused && STATE.camera && !STATE.introActive) {
             STATE.camera.rotation.y -= e.movementX * 0.0025;
             STATE.camera.rotation.x = Math.max(-1.4, Math.min(1.4, STATE.camera.rotation.x - e.movementY * 0.0025));
         }
@@ -1327,7 +1379,7 @@ function setupEvents() {
             return;
         }
 
-        if (STATE.shopOpen || isTouchDevice) return;
+        if (STATE.shopOpen || currentTouchMode) return;
         if (!document.pointerLockElement) { document.body.requestPointerLock(); return; }
         
         if (e.button === 0 && STATE.playerStunTime <= 0) {
@@ -1336,20 +1388,20 @@ function setupEvents() {
     });
 
     window.addEventListener('mouseup', (e) => {
-        if (isTouchDevice) return;
+        if (currentTouchMode) return;
         if (e.button === 0) PLAYER.isShooting = false;
     });
 
     document.addEventListener('pointerlockchange', () => {
-        if (!isTouchDevice && !document.pointerLockElement) {
+        if (!currentTouchMode && !document.pointerLockElement) {
             if (STATE.stageActive && !STATE.isGameOver && !STATE.shopOpen && !STATE.isPaused && !STATE.introActive) {
                 pauseGame();
             }
         }
     });
 
-    if (isTouchDevice) {
-        setupTouchControls();
+    if (currentTouchMode) {
+        initTouchControls();
     }
 }
 
@@ -1581,7 +1633,7 @@ function animate() {
         if (keys['KeyW']) move.z -= 1; if (keys['KeyS']) move.z += 1;
         if (keys['KeyA']) move.x -= 1; if (keys['KeyD']) move.x += 1;
         
-        if (isTouchDevice && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
+        if (currentTouchMode && (joystickVector.x !== 0 || joystickVector.y !== 0)) {
             move.x += joystickVector.x;
             move.z += joystickVector.y;
         }
@@ -1594,7 +1646,7 @@ function animate() {
             -move.x * Math.sin(camRot) + move.z * Math.cos(camRot)
         );
         let currentSpeed = PLAYER.speed;
-        const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (isTouchDevice && STATE.dashActive);
+        const isDashing = keys['ShiftLeft'] || keys['ShiftRight'] || (currentTouchMode && STATE.dashActive);
         if (isDashing) currentSpeed *= DASH_MULT;
         STATE.camera.position.add(combinedMove.normalize().multiplyScalar(currentSpeed));
     }
@@ -1613,7 +1665,7 @@ function animate() {
         }
     }
 
-    if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || isTouchDevice)) {
+    if (PLAYER.isShooting && !STATE.shopOpen && (document.pointerLockElement || currentTouchMode)) {
         if (Date.now() - PLAYER.lastShot > PLAYER.fireRate) {
             try {
                 shoot();
