@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>非将棋</title>
+    <!-- CSSの読み込み -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- 操作方法選択画面 -->
+    <div id="device-select-screen">
+        <div class="menu-inner" style="text-align: center;">
+            <div class="washitsu-header">
+                <span class="sub-title">操作手引</span>
+                <h1 class="miyabi-title" style="font-size: 3.5rem;">操作方法選択</h1>
+            </div>
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+                <button id="btn-select-pc" class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;">キーボード・マウス</button>
+                <button id="btn-select-touch" class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;">タッチ操作 (スマホ・タブレット)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="damage-vignette"></div>
+    
+    <div id="ui-layer">
+        <!-- 所持銭コンテナ -->
+        <div id="score-container">所持銭：<span id="score-val">0</span></div>
+        
+        <!-- 生命（HP）コンテナ -->
+        <div id="hp-container">
+            <div class="label">生命</div>
+            <div id="hp-frame">
+                <div id="hp-bar"></div>
+            </div>
+        </div>
+        
+        <!-- 局数・残敵表示コンテナ -->
+        <div id="wave-container">
+            <div class="enemy-count">残敵：<span id="enemy-count">0</span></div>
+            <div class="wave-text">第<span id="wave-val">一</span>局</div>
+        </div>
+        
+        <!-- 照準器 -->
+        <div id="crosshair"></div>
+        
+        <!-- バーチャルコントローラー -->
+        <div id="touch-controls">
+            <!-- ジョイスティック -->
+            <div id="joystick-outer">
+                <div id="joystick-knob"></div>
+            </div>
+            
+            <!-- メニューボタン -->
+            <button id="btn-shop" class="touch-btn menu-btn">店</button>
+            <button id="btn-pause" class="touch-btn menu-btn">控</button>
+            
+            <!-- 戦闘操作ボタン -->
+            <button id="btn-shoot" class="touch-btn">撃</button>
+            <button id="btn-jump" class="touch-btn">跳</button>
+            <button id="btn-dash" class="touch-btn">走</button>
+        </div>
+
+        <div class="controls-hint">WASD: 移動 | Shift: ダッシュ | Space: 跳躍 | Click: 発射 | Tab: ショップ | Esc: 一時停止</div>
+    </div>
+
+    <!-- ショップメニュー (#ui-layerの外に配置) -->
+    <div id="shop-menu">
+        <h2 style="text-align:center; margin-top:0; margin-bottom:15px; font-size:1.4rem; color: #fff;">御品書き</h2>
+        <div class="shop-item" id="shop-item-0">
+            <div><span class="shop-marker">　</span><span>腕力強化 (威力)</span></div> <span id="cost-power">500</span>
+        </div>
+        <div class="shop-item" id="shop-item-1">
+            <div><span class="shop-marker">　</span><span>連射技術 (速度)</span></div> <span id="cost-rate">800</span>
+        </div>
+        <div class="shop-item" id="shop-item-2">
+            <div><span class="shop-marker">　</span><span>瞬身の術 (移動)</span></div> <span id="cost-speed">400</span>
+        </div>
+        <div class="shop-item" id="shop-item-3">
+            <div><span class="shop-marker">　</span><span>強靭な魂 (体力)</span></div> <span id="cost-hp">600</span>
+        </div>
+        <div class="shop-item" id="shop-item-4">
+            <div><span class="shop-marker">　</span><span>自己修復 (回復)</span></div> <span id="cost-regen">700</span>
+        </div>
+        <p id="shop-close-desc" style="font-size:11px; text-align:center; color:#ccc; margin-top:15px; margin-bottom:0; line-height:1.4;">
+            [Tab]: 帳場開閉<br>
+            [Wheel]: 品定 | [右Click]: 購求<br>
+            [一]～[五]の鍵盤を叩くことでも即座に体得可
+        </p>
+    </div>
+
+    <!-- タイトル画面 -->
+    <div id="title-screen" style="display: none;">
+        <div class="menu-inner" style="text-align: center;">
+            <div class="washitsu-header">
+                <span class="sub-title">Not Shogi</span>
+                <h1 class="miyabi-title" style="font-size: 4.5rem;">非将棋</h1>
+            </div>
+            <div class="clear-btn-group" style="flex-direction: column; gap: 20px; width: 100%; max-width: 320px; z-index: 10; margin-top: 30px;">
+                <button id="btn-campaign-start" class="clear-btn next-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem;">本戦 (盤上選択へ)</button>
+                <button id="btn-practice-start" class="clear-btn back-btn" style="width: 100%; padding: 18px 0; font-size: 1.4rem; border-color: #555; background: rgba(20, 20, 20, 0.6);">修練 (一対一練習)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ロード画面 -->
+    <div id="loading-screen" style="display: none;">
+        <div id="loading-content" style="text-align: center; max-width: 600px; padding: 20px;">
+            <h2 id="loading-title">盤上生成中...</h2>
+            <p id="loading-status" style="font-size: 1.1rem; color: #888; margin-top: 10px; line-height: 1.6;">スプレッドシートからデータを取得しています。</p>
+            <div id="loading-error-actions" style="display: none; margin-top: 30px;">
+                <button id="btn-fallback-start" class="clear-btn" style="font-size: 1.2rem; padding: 12px 35px; background: #007bff; border: 1px solid #007bff; color: #fff;">予備の盤上で開始</button>
+                <div style="margin-top: 25px; font-size: 0.9rem; color: #666; text-align: left; line-height: 1.8; border-top: 1px solid #333; padding-top: 15px;">
+                    <strong>【読み込みに失敗しました】</strong><br>
+                     <strong>予備のデータで遊ぶか、サイトを更新してください。</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ステージ選択画面 (2Dすごろくマップ型システム) -->
+    <div id="stage-select-menu" class="map-screen">
+        <div class="map-viewport">
+            <div id="map-container">
+                <svg id="map-routes-svg">
+                    <!-- 動的生成される接続線を受け入れるためのクリーンなコンテナ -->
+                </svg>
+                
+                <div id="player-avatar" style="left: 450px; top: 300px;">
+                    <div class="avatar-icon">玉</div>
+                </div>
+
+                <div id="map-nodes-container">
+                    <div class="stage-node cleared" style="left: 200px; top: 300px;" 
+                         data-stage-id="stage-1" 
+                         data-stage-name="第一局: 歩兵の歩み" 
+                         data-enemies='[{"name": "歩兵", "count": 3}]'>
+                        <div class="node-icon">歩</div>
+                    </div>
+
+                    <div class="stage-node unlocked active" style="left: 450px; top: 300px;" 
+                         data-stage-id="stage-2" 
+                         data-stage-name="第二局: 香車の疾走" 
+                         data-enemies='[{"name": "香車", "count": 1}, {"name": "歩兵", "count": 2}]'>
+                        <div class="node-icon">香</div>
+                    </div>
+
+                    <div class="stage-node locked" style="left: 700px; top: 450px;" 
+                         data-stage-id="stage-3" 
+                         data-stage-name="第三局: 桂馬の奇襲" 
+                         data-enemies='[{"name": "桂馬", "count": 2}, {"name": "歩兵", "count": 2}]'>
+                        <div class="node-icon">桂</div>
+                    </div>
+
+                    <div class="stage-node locked" style="left: 950px; top: 300px;" 
+                         data-stage-id="stage-4" 
+                         data-stage-name="最終局: 盤上の覇王" 
+                         data-enemies='[{"name": "王将", "count": 1}, {"name": "金将", "count": 2}, {"name": "銀将", "count": 2}]'>
+                        <div class="node-icon">王</div>
+                    </div>
+                </div>
+
+                <!-- 吹き出しおよび座標追従制御に対応したステージ情報パネル -->
+                <div id="stage-info-panel" style="display: none;">
+                    <div class="panel-header">
+                        <h3 id="info-stage-name"></h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="enemy-list-container">
+                            <h4>対峙する敵：</h4>
+                            <ul id="info-enemy-list"></ul>
+                        </div>
+                    </div>
+                    <div class="panel-footer">
+                        <button id="stage-start-btn" class="menu-btn start-btn">対局開始</button>
+                        <button id="stage-back-btn" class="menu-btn back-btn">戻る</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="map-touch-controls">
+            <div class="controller-pad">
+                <button id="ctrl-up" class="ctrl-btn up" aria-label="上">▲</button>
+                <button id="ctrl-left" class="ctrl-btn left" aria-label="左">◀</button>
+                <button id="ctrl-ok" class="ctrl-btn ok-btn map-touch-btn btn-map-select">決定</button>
+                <button id="ctrl-right" class="ctrl-btn right" aria-label="右">▶</button>
+                <button id="ctrl-down" class="ctrl-btn down" aria-label="下">▼</button>
+            </div>
+        </div>
+
+        <template id="stage-node-template">
+            <div class="stage-node">
+                <div class="node-icon"></div>
+            </div>
+        </template>
+    </div>
+
+    <!-- 修練（駒選択）画面 -->
+    <div id="practice-select-menu" style="display:none;">
+        <div class="menu-inner">
+            <div class="washitsu-header">
+                <span class="sub-title">修練の場</span>
+                <h1 class="miyabi-title">修練対戦駒選択</h1>
+            </div>
+            <div class="stage-list" id="practice-piece-list"></div>
+            <button id="btn-back-to-title-practice" class="clear-btn back-btn" style="margin-top: 25px; z-index: 3; width: 100%; max-width: 300px;">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- ステージクリア画面 -->
+    <div id="stage-clear-menu" style="display:none;">
+        <div class="sakura-container">
+            <div class="petal p1"></div>
+            <div class="petal p2"></div>
+            <div class="petal p3"></div>
+            <div class="petal p4"></div>
+            <div class="petal p5"></div>
+            <div class="petal p6"></div>
+            <div class="petal p7"></div>
+            <div class="petal p8"></div>
+        </div>
+        <h1 class="clear-main-title">見事</h1>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">局を制しました</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button id="btn-next-stage" class="clear-btn next-btn">次の局へ</button>
+            <button id="btn-clear-practice" class="clear-btn next-btn" style="background:#28a745; border-color:#28a745; display:none;">他の駒と修練</button>
+            <button id="btn-clear-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-clear-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 一時停止（ポーズ）画面 -->
+    <div id="pause-menu" style="display:none;">
+        <h1 class="clear-main-title" style="font-size: 3.2rem;">一時停止</h1>
+        <div class="clear-info-wrap">
+            <div class="clear-line"></div>
+            <div class="clear-info">一休みいたしましょう</div>
+            <div class="clear-line"></div>
+        </div>
+        <div class="clear-btn-group">
+            <button id="btn-resume-game" class="clear-btn next-btn">再開</button>
+            <button id="btn-pause-practice" class="clear-btn next-btn" style="background:#28a745; border-color:#28a745; display:none;">修練選択に戻る</button>
+            <button id="btn-pause-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-pause-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <!-- 敗北（投了）画面 -->
+    <div id="game-over">
+        <h1>投了</h1>
+        <div class="clear-btn-group" style="margin-top: 40px; z-index: 1005;">
+            <button id="btn-restart-stage" class="clear-btn next-btn">再戦を申し込む</button>
+            <button id="btn-go-practice" class="clear-btn next-btn" style="background:#28a745; border-color:#28a745; display:none;">修練選択に戻る</button>
+            <button id="btn-go-back" class="clear-btn back-btn">盤上選択に戻る</button>
+            <button id="btn-go-title" class="clear-btn back-btn">タイトルに戻る</button>
+        </div>
+    </div>
+
+    <div id="msg-overlay"></div>
+
+    <!-- Three.js のインポートマップ -->
+    <script type="importmap">
+    { 
+        "imports": { 
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "map-system": "./map-system.js",
+            "./map-system.js": "./map-system.js"
+        } 
+    }
+    </script>
+    
+    <!-- デバッグ機能のロード -->
+    <script type="module" src="./debug-extension.js"></script>
+    <!-- マップ制御システム -->
+    <script type="module" src="./map-system.js"></script>
+    <!-- メインエントリースクリプトのロード -->
+    <script type="module" src="./main.js"></script>
+
+    <!-- デバッグ専用画面 (和風モダン調整板) -->
+    <div id="debug-menu-panel" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 480px; background: rgba(19, 17, 16, 0.98); border: 3px double var(--color-chinkin, #c5a059); border-radius: 2px; box-shadow: 0 20px 45px rgba(0,0,0,0.9), inset 0 0 25px rgba(197, 160, 89, 0.1); padding: 25px; z-index: 3000; color: var(--color-washi, #f5f2eb); font-family: inherit; box-sizing: border-box;">
+        <div style="text-align: center; border-bottom: 2px solid var(--color-honshu, #9e2a2b); padding-bottom: 12px; margin-bottom: 20px;">
+            <span style="font-size: 0.8rem; color: var(--color-chinkin, #c5a059); letter-spacing: 0.3em; display: block; margin-bottom: 5px;">裏仕事・調整板</span>
+            <h2 style="margin: 0; font-size: 1.8rem; letter-spacing: 0.2em; text-shadow: 1px 1px 0px var(--color-honshu, #9e2a2b); color: #fff;">神の領域 (デバッグ)</h2>
+        </div>
+        
+        <!-- 各種スイッチ -->
+        <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 1rem; color: var(--color-chinkin-pale, #eae0cd); margin-top: 0; margin-bottom: 12px; border-left: 3px solid var(--color-chinkin, #c5a059); padding-left: 8px;">理（ことわり）の改変</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem;">
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                    <span>金剛不壊 (無敵モード)</span>
+                    <input type="checkbox" id="debug-god-mode" style="accent-color: var(--color-honshu, #9e2a2b); width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                    <span>刻の静止 (敵の一時停止)</span>
+                    <input type="checkbox" id="debug-freeze-enemies" style="accent-color: var(--color-honshu, #9e2a2b); width: 18px; height: 18px; cursor: pointer;">
+                </label>
+                <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                    <span>万物浮揚 (空中移動)</span>
+                    <input type="checkbox" id="debug-creative-mode" style="accent-color: var(--color-honshu, #9e2a2b); width: 18px; height: 18px; cursor: pointer;">
+                </label>
+            </div>
+        </div>
+        
+        <!-- 各種スライドバー -->
+        <div style="margin-bottom: 25px;">
+            <h3 style="font-size: 1rem; color: var(--color-chinkin-pale, #eae0cd); margin-top: 0; margin-bottom: 15px; border-left: 3px solid var(--color-chinkin, #c5a059); padding-left: 8px;">器（うつわ）の調整</h3>
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>生命 (HP)</span>
+                        <span id="val-debug-hp" style="color: var(--color-chinkin, #c5a059); font-weight: bold;">100</span>
+                    </div>
+                    <input type="range" id="range-debug-hp" min="1" max="9999" value="100" style="width: 100%; accent-color: var(--color-honshu, #9e2a2b); cursor: pointer;">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>腕力 (威力)</span>
+                        <span id="val-debug-power" style="color: var(--color-chinkin, #c5a059); font-weight: bold;">1</span>
+                    </div>
+                    <input type="range" id="range-debug-power" min="1" max="500" value="1" style="width: 100%; accent-color: var(--color-honshu, #9e2a2b); cursor: pointer;">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>連射速度 (ミリ秒)</span>
+                        <span id="val-debug-rate" style="color: var(--color-chinkin, #c5a059); font-weight: bold;">300</span>
+                    </div>
+                    <input type="range" id="range-debug-rate" min="50" max="1000" step="10" value="300" style="width: 100%; accent-color: var(--color-honshu, #9e2a2b); cursor: pointer;">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>瞬身 (移動速度)</span>
+                        <span id="val-debug-speed" style="color: var(--color-chinkin, #c5a059); font-weight: bold;">0.5</span>
+                    </div>
+                    <input type="range" id="range-debug-speed" min="0.1" max="3.0" step="0.05" value="0.5" style="width: 100%; accent-color: var(--color-honshu, #9e2a2b); cursor: pointer;">
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>所持銭 (スコア)</span>
+                        <span id="val-debug-score" style="color: var(--color-chinkin, #c5a059); font-weight: bold;">0</span>
+                    </div>
+                    <input type="range" id="range-debug-score" min="0" max="999999" step="100" value="0" style="width: 100%; accent-color: var(--color-honshu, #9e2a2b); cursor: pointer;">
+                </div>
+            </div>
+        </div>
+        
+        <!-- ボタン群 -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-debug-reset-status" class="clear-btn" style="flex: 1; padding: 10px 0; font-size: 0.9rem; border-color: var(--color-honshu, #9e2a2b); background: rgba(158, 42, 43, 0.15);">能力初期化</button>
+                <button id="btn-debug-reset-progress" class="clear-btn" style="flex: 1; padding: 10px 0; font-size: 0.9rem; border-color: var(--color-honshu, #9e2a2b); background: rgba(158, 42, 43, 0.15);">進捗初期化</button>
+            </div>
+            <button id="btn-debug-close" class="clear-btn next-btn" style="width: 100%; padding: 12px 0; font-size: 1rem;">閉じる</button>
+        </div>
+    </div>
+</body>
+</html>
